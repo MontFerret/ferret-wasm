@@ -1,0 +1,26 @@
+{
+  "name": "@montferret/ferret-wasm",
+  "version": "0.1.0-rc.1",
+  "description": "Ferret compiler and runtime ported to WASM",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "make compile"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MontFerret/ferret-wasm.git"
+  },
+  "keywords": [
+    "ferret",
+    "runtime",
+    "compiler",
+    "wasm",
+    "browser"
+  ],
+  "author": "MontFerret Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MontFerret/ferret-wasm/issues"
+  },
+  "homepage": "https://github.com/MontFerret/ferret-wasm#readme"
+}
