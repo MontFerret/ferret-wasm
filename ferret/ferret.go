@@ -2,12 +2,13 @@ package ferret
 
 import (
 	"context"
+	"strconv"
 	"syscall/js"
+	"time"
 
 	"github.com/MontFerret/ferret/pkg/compiler"
 	"github.com/MontFerret/ferret/pkg/runtime"
 
-	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -26,80 +27,46 @@ func New(version string) *Ferret {
 	return f
 }
 
-func (f *Ferret) Version(this js.Value, args []js.Value) *Result {
+func (f *Ferret) Version() *Result {
 	return Ok([]byte(f.version))
 }
 
-func (f *Ferret) Compile(this js.Value, args []js.Value) *Result {
-	if len(args) == 0 {
-		return Error(errors.New("missed query"))
-	}
-
-	program, err := f.compiler.Compile(args[0].String())
+func (f *Ferret) Compile(query js.Value) *Result {
+	program, err := f.compiler.Compile(query.String())
 
 	if err != nil {
 		return Error(errors.Wrap(err, "compile query"))
 	}
 
-	id, err := uuid.NewV4()
+	id := strconv.Itoa(int(time.Now().UnixNano()))
+	f.programs[id] = program
 
-	if err != nil {
-		return Error(err)
-	}
-
-	idStr := id.String()
-
-	f.programs[idStr] = program
-
-	return Ok([]byte(idStr))
+	return Ok([]byte(id))
 }
 
-func (f *Ferret) Run(this js.Value, args []js.Value) *Result {
-	if len(args) == 0 {
-		return Error(errors.New("missed program id"))
-	}
-
-	program, found := f.programs[args[0].String()]
+func (f *Ferret) Run(id, params js.Value) *Result {
+	program, found := f.programs[id.String()]
 
 	if !found {
 		return Error(errors.New("invalid program id"))
 	}
 
-	return f.execProgram(program, args[1:])
+	return f.execProgram(program, params)
 }
 
-func (f *Ferret) Execute(this js.Value, args []js.Value) *Result {
-	if len(args) == 0 {
-		return Error(errors.New("missed query"))
-	}
-
-	program, err := f.compiler.Compile(args[0].String())
+func (f *Ferret) Execute(query, params js.Value) *Result {
+	program, err := f.compiler.Compile(query.String())
 
 	if err != nil {
 		return Error(errors.Wrap(err, "compile query"))
 	}
 
-	return f.execProgram(program, args[1:])
+	return f.execProgram(program, params)
 }
 
-func (f *Ferret) execProgram(p *runtime.Program, args []js.Value) *Result {
-	params := make(map[string]interface{})
-
-	//if len(args) > 0 {
-	//	arg := args[0]
-	//
-	//	if arg.Type() == js.TypeObject {
-	//		keys := js.Global().Get("Object").Call("keys", arg)
-	//
-	//		if arg.Type() == js.TypedArray {
-	//
-	//		}
-	//	}
-	//}
-
+func (f *Ferret) execProgram(p *runtime.Program, paramValues js.Value) *Result {
 	ctx := context.Background()
-
-	out, err := p.Run(ctx, runtime.WithParams(params))
+	out, err := p.Run(ctx, runtime.WithParams(toParams(paramValues)))
 
 	if err != nil {
 		return Error(errors.Wrap(err, "run program"))
