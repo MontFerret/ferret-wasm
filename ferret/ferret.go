@@ -2,12 +2,13 @@ package ferret
 
 import (
 	"context"
+	"strconv"
 	"syscall/js"
+	"time"
 
 	"github.com/MontFerret/ferret/pkg/compiler"
 	"github.com/MontFerret/ferret/pkg/runtime"
 
-	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -41,17 +42,10 @@ func (f *Ferret) Compile(this js.Value, args []js.Value) *Result {
 		return Error(errors.Wrap(err, "compile query"))
 	}
 
-	id, err := uuid.NewV4()
+	id := strconv.Itoa(int(time.Now().UnixNano()))
+	f.programs[id] = program
 
-	if err != nil {
-		return Error(err)
-	}
-
-	idStr := id.String()
-
-	f.programs[idStr] = program
-
-	return Ok([]byte(idStr))
+	return Ok([]byte(id))
 }
 
 func (f *Ferret) Run(this js.Value, args []js.Value) *Result {

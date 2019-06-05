@@ -1,45 +1,38 @@
-import isNodeJS from './is-node';
-import { Go } from './wasm_exec';
+import isNodeJS from "./is-node";
+import { Go } from "./wasm_exec";
+import { Engine } from "./engine";
 
 declare var WebAssembly: any;
 
-const MODULE = 'ferret.wasm';
+const MODULE_PATH = "ferret.wasm";
 
-export class Ferret {
-    constructor(go: Go) {
-    }
+export async function create(module?: string): Promise<Engine> {
+  let file;
 
-    exec() {
-    }
-}
+  if (!isNodeJS) {
+    const resp = await fetch(module || MODULE_PATH);
+    file = await resp.arrayBuffer();
+  } else {
+    const fs = require("fs");
+    const path = require("path");
 
-export async function create(module?: string): Promise<Ferret> {
-    let file;
+    file = await new Promise((resolve, reject) => {
+      const targetModule = module || path.resolve(__dirname, MODULE_PATH);
 
-    if (!isNodeJS) {
-        file = await fetch(module || MODULE);
+      fs.readFile(targetModule, (err, buffer) => {
+        if (err != null) {
+          return reject(err);
+        }
 
-    } else {
-        const fs = require('fs');
-        const path = require('path');
+        return resolve(buffer);
+      });
+    });
+  }
 
-        file = await new Promise((resolve, reject) => {
-            const targetModule = module || path.resolve(__dirname, MODULE);
+  const go = new Go();
+  const asm = await WebAssembly.instantiate(file, go.importObject);
 
-            fs.readFile(targetModule, (err, buffer) => {
-                if (err != null) {
-                    return reject(err)
-                }
+  go.run(asm.instance);
 
-                return resolve(buffer);
-            });
-        });
-    }
-
-    const go = new Go();
-    const asm = await WebAssembly.instantiate(file, go.importObject);
-
-    go.run(asm.instance);
-
-    return new Ferret(go);
+  return new Engine(go);
 }

@@ -1,2 +1,3 @@
 # ferret-wasm
-Ferret compiler and runtime ported to WASM
+
+Engine compiler and runtime ported to WASM
