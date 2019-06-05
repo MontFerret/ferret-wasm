@@ -247,7 +247,6 @@ typings/
 
 js/
 ferret/
-.cache/
 .huskyrc.json
 .gitignore
 .prettierrc
@@ -260,3 +259,4 @@ main.go
 Makefile
 tsconfig.json
 tslint.json
+vendor
