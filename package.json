@@ -5,7 +5,9 @@
     "main": "dist/index.js",
     "scripts": {
         "compile": "tsc -b ./tsconfig.json",
-        "build": "make compile"
+        "build": "make compile",
+        "test": "echo no tests",
+        "prepublish": "npm run build && npm run test"
     },
     "repository": {
         "type": "git",
