@@ -3,6 +3,8 @@ import { Go } from './wasm_exec';
 
 declare var WebAssembly: any;
 
+const MODULE = 'ferret.wasm';
+
 export class Ferret {
     constructor(go: Go) {
     }
@@ -11,17 +13,20 @@ export class Ferret {
     }
 }
 
-export async function create(module: string = './ferret.wasm'): Promise<Ferret> {
+export async function create(module?: string): Promise<Ferret> {
     let file;
 
     if (!isNodeJS) {
-        file = await fetch(module);
+        file = await fetch(module || MODULE);
 
     } else {
         const fs = require('fs');
+        const path = require('path');
 
         file = await new Promise((resolve, reject) => {
-            fs.readFile(module, (err, buffer) => {
+            const targetModule = module || path.resolve(__dirname, MODULE);
+
+            fs.readFile(targetModule, (err, buffer) => {
                 if (err != null) {
                     return reject(err)
                 }

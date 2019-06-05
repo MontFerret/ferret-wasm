@@ -80,11 +80,12 @@ const decoder = new platform.TextDecoder("utf-8");
 
 export interface ImportObject { go: { "runtime.clearTimeoutEvent": (sp) => void; "syscall/js.valueInvoke": (sp) => void; debug: (value) => void; "runtime.wasmExit": (sp) => void; "syscall/js.valueSet": (sp) => void; "runtime.walltime": (sp) => void; "syscall/js.valueNew": (sp) => void; "syscall/js.valueInstanceOf": (sp) => void; "syscall/js.valueLoadString": (sp) => void; "syscall/js.stringVal": (sp) => void; "syscall/js.valueIndex": (sp) => void; "syscall/js.valueLength": (sp) => void; "syscall/js.valueCall": (sp) => void; "runtime.wasmWrite": (sp) => void; "runtime.nanotime": (sp) => void; "runtime.getRandomData": (sp) => void; "syscall/js.valueGet": (sp) => void; "syscall/js.valuePrepareString": (sp) => void; "runtime.scheduleTimeoutEvent": (sp) => void; "syscall/js.valueSetIndex": (sp) => void } }
 
-export class Go {
+export class Go<T = any> {
 	public argv: string[];
 	public env: object;
 	public exit: (code: any) => void;
 	public importObject: ImportObject;
+	public exportObject: T;
 	public exited: boolean;
 
 	private readonly _exitPromise: Promise<any>;
@@ -99,6 +100,7 @@ export class Go {
 	constructor() {
 		this.argv = ["js"];
 		this.env = {};
+		this.exportObject = Object.create(null);
 		this.exited = false;
 		this.exit = (code) => {
 			if (code !== 0) {
@@ -416,7 +418,7 @@ export class Go {
 			null,
 			true,
 			false,
-			global,
+			this.exportObject,
 			this._inst.exports.mem,
 			this,
 		];
