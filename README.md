@@ -12,7 +12,7 @@ npm install @montferret/ferret-wasm
 
 
 ```javascript
-const create = require('@montferret/ferret-wasm');
+const { create } = require('@montferret/ferret-wasm');
 
 async function test() {
   const compiler = await create();
@@ -29,7 +29,7 @@ test();
 ```
 
 ```javascript
-const create = require('@montferret/ferret-wasm');
+const { create } = require('@montferret/ferret-wasm');
 
 async function test() {
   const compiler = await create();

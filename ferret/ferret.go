@@ -65,16 +65,8 @@ func (f *Ferret) Execute(query, params js.Value) *Result {
 }
 
 func (f *Ferret) execProgram(p *runtime.Program, paramValues js.Value) *Result {
-	params := make(map[string]interface{})
-
-	//if paramValues.Type() == js.TypeObject {
-	//	keys := js.Global().Get("Object").Call("keys")
-	//
-	//}
-
 	ctx := context.Background()
-
-	out, err := p.Run(ctx, runtime.WithParams(params))
+	out, err := p.Run(ctx, runtime.WithParams(toParams(paramValues)))
 
 	if err != nil {
 		return Error(errors.Wrap(err, "run program"))
