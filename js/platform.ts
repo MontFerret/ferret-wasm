@@ -173,6 +173,7 @@ export class Platform implements Global {
             const util = require('util');
             this.encoder = new util.TextEncoder(encoding);
             this.decoder = new util.TextDecoder(encoding);
+            this['fetch'] = require('node-fetch');
         } else {
             let outputBuf = '';
             const platform = this;
@@ -234,11 +235,17 @@ export class Platform implements Global {
                         return;
                     }
 
-                    const value = env[key];
+                    let value = env[key];
 
                     // skip leaking env object
                     if (value === env) {
                         return;
+                    }
+
+                    if (key[0].toLowerCase() === key[0]) {
+                        if (typeof value === 'function') {
+                            value = (value as Function).bind(env);
+                        }
                     }
 
                     this[key] = value;

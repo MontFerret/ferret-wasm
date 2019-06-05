@@ -1,6 +1,6 @@
 import { Go } from './wasm_exec';
 import { Program } from './program';
-import { Compiler } from './compiler';
+import { Compiler, createCallback } from './compiler';
 import { assert } from './helpers';
 
 export class Engine {
@@ -30,15 +30,9 @@ export class Engine {
         return new Program(this.__compiler, res.data as string);
     }
 
-    public exec<T>(query: string, args?: any): T {
-        const res = this.__compiler.exec(query, args);
-
-        assert(res);
-
-        if (res.ok) {
-            return res.data as T;
-        }
-
-        throw new Error(res.error);
+    public async exec<T>(query: string, params: object = {}): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            this.__compiler.exec(query, params, createCallback(resolve, reject));
+        });
     }
 }
