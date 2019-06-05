@@ -1,35 +1,36 @@
 {
-  "name": "@montferret/ferret-wasm",
-  "version": "0.1.0-rc.1",
-  "description": "Ferret compiler and runtime ported to WASM",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "make compile"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MontFerret/ferret-wasm.git"
-  },
-  "keywords": [
-    "ferret",
-    "runtime",
-    "compiler",
-    "wasm",
-    "browser"
-  ],
-  "author": "MontFerret Team",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/MontFerret/ferret-wasm/issues"
-  },
-  "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
-  "devDependencies": {
-    "@types/node": "^12.0.4",
-    "prettier": "^1.17.1",
-    "pretty-quick": "^1.11.0",
-    "tslint": "^5.17.0",
-    "tslint-config-airbnb": "^5.11.1",
-    "tslint-config-prettier": "^1.18.0",
-    "typescript": "^3.5.1"
-  }
+    "name": "@montferret/ferret-wasm",
+    "version": "0.1.0-rc.1",
+    "description": "Ferret compiler and runtime ported to WASM",
+    "main": "dist/index.js",
+    "scripts": {
+        "compile": "tsc -b ./tsconfig.json",
+        "build": "make compile"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/MontFerret/ferret-wasm.git"
+    },
+    "keywords": [
+        "ferret",
+        "runtime",
+        "compiler",
+        "wasm",
+        "browser"
+    ],
+    "author": "MontFerret Team",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/MontFerret/ferret-wasm/issues"
+    },
+    "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
+    "devDependencies": {
+        "@types/node": "^12.0.4",
+        "prettier": "^1.17.1",
+        "pretty-quick": "^1.11.0",
+        "tslint": "^5.17.0",
+        "tslint-config-airbnb": "^5.11.1",
+        "tslint-config-prettier": "^1.18.0",
+        "typescript": "^3.5.1"
+    }
 }
