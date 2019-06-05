@@ -1,6 +1,7 @@
 import { Go } from './wasm_exec';
 import { Program } from './program';
 import { Compiler } from './compiler';
+import { assert } from './helpers';
 
 export class Engine {
     private readonly __go: Go;
@@ -20,6 +21,8 @@ export class Engine {
     public compile(query: string): Program {
         const res = this.__compiler.compile(query);
 
+        assert(res);
+
         if (!res.ok) {
             throw new Error(res.error);
         }
@@ -29,6 +32,8 @@ export class Engine {
 
     public exec<T>(query: string, args?: any): T {
         const res = this.__compiler.exec(query, args);
+
+        assert(res);
 
         if (res.ok) {
             return res.data as T;

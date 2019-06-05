@@ -1,4 +1,5 @@
 import { Compiler } from './compiler';
+import { assert } from './helpers';
 
 export class Program {
     private readonly __compiler: Compiler;
@@ -10,12 +11,14 @@ export class Program {
     }
 
     public run<T = any>(args?: object): T {
-        const result = this.__compiler.run(this.__id, args);
+        const res = this.__compiler.run(this.__id, args);
 
-        if (result.ok) {
-            return result.data as T;
+        assert(res);
+
+        if (res.ok) {
+            return res.data as T;
         }
 
-        throw new Error(result.error);
+        throw new Error(res.error);
     }
 }

@@ -224,6 +224,26 @@ export class Platform implements Global {
             this.performance = window.performance;
             this.encoder = new (window.TextEncoder as any)(encoding);
             this.decoder = new window.TextDecoder(encoding);
+
+            let obj = window;
+
+            do
+                Object.getOwnPropertyNames(obj).forEach(key => {
+                    // skip already defined keys
+                    if (this[key] != null) {
+                        return;
+                    }
+
+                    const value = env[key];
+
+                    // skip leaking env object
+                    if (value === env) {
+                        return;
+                    }
+
+                    this[key] = value;
+                });
+            while (obj == Object.getPrototypeOf(obj));
         }
     }
 }
