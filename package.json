@@ -1,6 +1,6 @@
 {
     "name": "@montferret/ferret-wasm",
-    "version": "0.1.0-rc.1",
+    "version": "0.7.0",
     "description": "Ferret compiler and runtime ported to WASM",
     "main": "dist/index.js",
     "scripts": {
