@@ -12,7 +12,7 @@ npm install @montferret/ferret-wasm
 
 ## Limitations
 
--   HTML stack is not enabled yet.
+- Scraping stack is not enabled yet
 
 ## Quick start
 
