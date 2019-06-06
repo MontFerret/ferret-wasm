@@ -51,3 +51,51 @@ async function test() {
 
 test();
 ```
+
+### Function registration
+
+Sync functions
+
+```javascript
+const { create } = require('@montferret/ferret-wasm');
+
+async function test() {
+    const compiler = await create();
+    compiler.register('MY_FUNC', (...args) => {
+        return args.join('-');
+    });
+
+    const out = await compiler.exec(`
+      RETURN MY_FUNC('foo', 'bar')
+  `);
+
+    console.log(out); // foo-bar
+}
+
+test();
+```
+
+Async functions
+
+```javascript
+const { create } = require('@montferret/ferret-wasm');
+
+async function test() {
+    const compiler = await create();
+    compiler.register('MY_FUNC', (...args) => {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(args.join('-'));
+            }, 10);
+        });
+    });
+
+    const out = await compiler.exec(`
+      RETURN MY_FUNC('foo', 'bar')
+  `);
+
+    console.log(out); // foo-bar
+}
+
+test();
+```

@@ -71,6 +71,13 @@ func main() {
 
 		return ferret.OkEmpty()
 	}))
+	module.Set("register", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 2 {
+			return ferret.Error(errors.New("Missed arguments"))
+		}
+
+		return f.Register(args[0], args[1])
+	}))
 
 	<-c
 }

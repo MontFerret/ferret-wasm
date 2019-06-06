@@ -6,7 +6,7 @@
     "scripts": {
         "compile": "tsc -b ./tsconfig.json",
         "build": "make compile",
-        "test": "echo no tests",
+        "test": "mocha",
         "prepublish": "npm run build && npm run test"
     },
     "repository": {
@@ -30,10 +30,18 @@
         "node-fetch": "^2.6.0"
     },
     "devDependencies": {
+        "@types/chai": "^4.1.7",
+        "@types/mocha": "^5.2.7",
         "@types/node": "^12.0.4",
+        "@types/sinon": "^7.0.12",
+        "chai": "^4.2.0",
         "husky": "^2.4.0",
+        "mocha": "^6.1.4",
         "prettier": "^1.17.1",
         "pretty-quick": "^1.11.0",
+        "sinon": "^7.3.2",
+        "source-map-support": "^0.5.12",
+        "ts-node": "^8.2.0",
         "tslint": "^5.17.0",
         "tslint-config-airbnb": "^5.11.1",
         "tslint-config-prettier": "^1.18.0",
