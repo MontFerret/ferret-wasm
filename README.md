@@ -10,6 +10,10 @@ Ferret compiler and runtime ported to WASM
 npm install @montferret/ferret-wasm
 ```
 
+## Limitations
+
+-   HTML stack is not enabled yet.
+
 ## Quick start
 
 ```javascript
