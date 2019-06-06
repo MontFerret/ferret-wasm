@@ -20,3 +20,6 @@ compile:
 
 fmt:
 	go fmt ./ferret/...
+
+publish:
+	npm publish --access=public
