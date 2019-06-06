@@ -1,6 +1,6 @@
 # ferret-wasm
 
-Engine compiler and runtime ported to WASM
+Ferret compiler and runtime ported to WASM
 
 [![npm version](https://badge.fury.io/js/%40montferret%2Fferret-wasm.svg)](https://badge.fury.io/js/%40montferret%2Fferret-wasm)
 
