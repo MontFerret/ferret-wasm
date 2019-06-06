@@ -19,7 +19,8 @@ compile:
 	${NODE_BIN}/tsc -b ./tsconfig.json
 
 fmt:
-	go fmt ./ferret/...
+	go fmt ./ferret/... && \
+	${NODE_BIN}/pretty-quick
 
 publish:
 	npm publish --access=public

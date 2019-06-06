@@ -1,8 +1,11 @@
 package ferret
 
-import "syscall/js"
+import (
+	"github.com/MontFerret/ferret/pkg/runtime/core"
+	"syscall/js"
+)
 
-func fromValue(input js.Value) interface{} {
+func fromJsValue(input js.Value) interface{} {
 	switch input.Type() {
 	case js.TypeBoolean:
 		return input.Bool()
@@ -19,7 +22,7 @@ func fromValue(input js.Value) interface{} {
 			key := keys.Index(i)
 			value := input.Get(key.String())
 
-			res[key.String()] = fromValue(value)
+			res[key.String()] = fromJsValue(value)
 		}
 
 		return res
@@ -32,13 +35,22 @@ func fromValue(input js.Value) interface{} {
 			res := make([]interface{}, 0, input.Length())
 
 			for i := 0; i < input.Length(); i++ {
-				res = append(res, fromValue(input.Index(i)))
+				res = append(res, fromJsValue(input.Index(i)))
 			}
 
 			return res
 		}
 
 		return nil
+	}
+}
+
+func toJsValue(input interface{}) js.Value {
+	switch v := input.(type) {
+	case core.Value:
+		return js.ValueOf(v.Unwrap())
+	default:
+		return js.ValueOf(v)
 	}
 }
 
@@ -52,7 +64,7 @@ func toParams(input js.Value) map[string]interface{} {
 			key := keys.Index(i)
 			value := input.Get(key.String())
 
-			params[key.String()] = fromValue(value)
+			params[key.String()] = fromJsValue(value)
 		}
 	}
 

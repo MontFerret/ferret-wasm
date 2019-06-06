@@ -3,6 +3,8 @@ export interface Version {
     ferret: string;
 }
 
+export type RuntimeFunction = (...args: any[]) => any;
+
 export interface CompilerResult<T = any> {
     ok: boolean;
     data?: T;
@@ -24,6 +26,7 @@ export interface Compiler {
         args: object,
         cb: CompilerCallback<T>,
     ): CompilerResult<void>;
+    register(name: string, fn: RuntimeFunction): CompilerResult<void>;
 }
 
 export function createCallback<T>(
