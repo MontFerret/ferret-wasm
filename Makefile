@@ -4,15 +4,19 @@ export GOOS=js
 export GOARCH=wasm
 export NODE_ENV=production
 
-VERSION?=$(shell git describe --tags --always --dirty)
+PACKAGE_VERSION?=$(shell node -pe "require('./package.json').version")
+FERRET_VERSION=0.7.0
 DIR_BIN=./dist
 NODE_BIN=./node_modules/.bin
 GO_ROOT=$(go env GOROOT)
 
 install:
-	go mod vendor && go get
+	rm -rf go.sum && go mod vendor && go get
 
 compile:
 	rm -rf ${DIR_BIN} && \
-	go build -v -o ${DIR_BIN}/ferret.wasm -ldflags "-X main.version=${VERSION}" main.go && \
+	go build -v -o ${DIR_BIN}/ferret.wasm -ldflags "-X main.version=${PACKAGE_VERSION} -X main.ferretVersion=${FERRET_VERSION}" main.go && \
 	${NODE_BIN}/tsc -b ./tsconfig.json
+
+fmt:
+	go fmt ./ferret/...

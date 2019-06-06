@@ -1,20 +1,30 @@
 import { Go } from './wasm_exec';
 import { Program } from './program';
-import { Compiler, createCallback } from './compiler';
+import { Compiler, createCallback, Version } from './compiler';
 import { assert } from './helpers';
 
 export class Engine {
     private readonly __go: Go;
     private readonly __compiler: Compiler;
-    private readonly __version: string;
+    private readonly __version: Readonly<Version>;
 
     constructor(go: Go) {
         this.__go = go;
         this.__compiler = go.platform.ferret;
-        this.__version = this.__compiler.version();
+
+        const res = this.__compiler.version();
+
+        this.__version = Object.freeze(
+            res.ok
+                ? (res.data as Version)
+                : {
+                      self: 'undefined',
+                      ferret: 'undefined',
+                  },
+        );
     }
 
-    public version(): string {
+    public version(): Readonly<Version> {
         return this.__version;
     }
 
@@ -32,7 +42,11 @@ export class Engine {
 
     public async exec<T>(query: string, params: object = {}): Promise<T> {
         return new Promise<T>((resolve, reject) => {
-            this.__compiler.exec(query, params, createCallback(resolve, reject));
+            this.__compiler.exec(
+                query,
+                params,
+                createCallback(resolve, reject),
+            );
         });
     }
 }

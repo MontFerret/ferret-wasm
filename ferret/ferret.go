@@ -13,12 +13,12 @@ import (
 )
 
 type Ferret struct {
-	version  string
+	version  Version
 	compiler *compiler.FqlCompiler
 	programs map[string]*runtime.Program
 }
 
-func New(version string) *Ferret {
+func New(version Version) *Ferret {
 	f := new(Ferret)
 	f.version = version
 	f.compiler = compiler.New()
@@ -28,7 +28,7 @@ func New(version string) *Ferret {
 }
 
 func (f *Ferret) Version() *Result {
-	return Ok([]byte(f.version))
+	return OkInterface(f.version)
 }
 
 func (f *Ferret) Compile(query js.Value) *Result {
@@ -66,6 +66,7 @@ func (f *Ferret) Execute(query, params js.Value) *Result {
 
 func (f *Ferret) execProgram(p *runtime.Program, paramValues js.Value) *Result {
 	ctx := context.Background()
+
 	out, err := p.Run(ctx, runtime.WithParams(toParams(paramValues)))
 
 	if err != nil {

@@ -1,3 +1,8 @@
+export interface Version {
+    self: string;
+    ferret: string;
+}
+
 export interface CompilerResult<T = any> {
     ok: boolean;
     data?: T;
@@ -7,7 +12,7 @@ export interface CompilerResult<T = any> {
 export type CompilerCallback<T> = (err?: string, data?: T) => void;
 
 export interface Compiler {
-    version(): string;
+    version(): CompilerResult<Version>;
     compile(query: string): CompilerResult<string>;
     run<T>(
         id: string,

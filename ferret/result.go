@@ -15,6 +15,10 @@ func OkEmpty() *Result {
 	return &Result{}
 }
 
+func OkInterface(data interface{}) *Result {
+	return &Result{data, nil, true}
+}
+
 func Ok(data []byte) *Result {
 	var values interface{}
 

@@ -10,7 +10,10 @@ import (
 
 const namespace = "ferret"
 
-var version = "undefined"
+var (
+	version       = "undefined"
+	ferretVersion = "undefined"
+)
 
 func notify(callback js.Value, res *ferret.Result) {
 	if res.Ok() {
@@ -23,13 +26,13 @@ func notify(callback js.Value, res *ferret.Result) {
 func main() {
 	c := make(chan struct{}, 0)
 
-	f := ferret.New(version)
+	f := ferret.New(ferret.Version{version, ferretVersion})
 
 	js.Global().Set(namespace, make(map[string]interface{}))
 
 	module := js.Global().Get(namespace)
 	module.Set("version", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return f.Version()
+		return js.ValueOf(f.Version())
 	}))
 	module.Set("compile", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) < 1 {
