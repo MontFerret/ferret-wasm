@@ -1,6 +1,6 @@
 import { Go } from './wasm_exec';
 import { Program } from './program';
-import { Compiler, createCallback, Version } from './compiler';
+import { Compiler, createCallback, RuntimeFunction, Version } from './compiler';
 import { assert } from './helpers';
 
 export class Engine {
@@ -26,6 +26,16 @@ export class Engine {
 
     public version(): Readonly<Version> {
         return this.__version;
+    }
+
+    public register(name: string, fn: RuntimeFunction): void {
+        const res = this.__compiler.register(name, fn);
+
+        assert(res);
+
+        if (!res.ok) {
+            throw new Error(res.error);
+        }
     }
 
     public compile(query: string): Program {

@@ -1,6 +1,6 @@
 # ferret-wasm
 
-Engine compiler and runtime ported to WASM
+Ferret compiler and runtime ported to WASM
 
 [![npm version](https://badge.fury.io/js/%40montferret%2Fferret-wasm.svg)](https://badge.fury.io/js/%40montferret%2Fferret-wasm)
 
@@ -9,6 +9,10 @@ Engine compiler and runtime ported to WASM
 ```sh
 npm install @montferret/ferret-wasm
 ```
+
+## Limitations
+
+-   Scraping stack is not enabled yet
 
 ## Quick start
 
@@ -47,6 +51,54 @@ async function test() {
     const out2 = await program.run({ factor: 3 });
 
     console.log(out2); // [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
+}
+
+test();
+```
+
+### Function registration
+
+Sync functions
+
+```javascript
+const { create } = require('@montferret/ferret-wasm');
+
+async function test() {
+    const compiler = await create();
+    compiler.register('MY_FUNC', (...args) => {
+        return args.join('-');
+    });
+
+    const out = await compiler.exec(`
+      RETURN MY_FUNC('foo', 'bar')
+  `);
+
+    console.log(out); // foo-bar
+}
+
+test();
+```
+
+Async functions
+
+```javascript
+const { create } = require('@montferret/ferret-wasm');
+
+async function test() {
+    const compiler = await create();
+    compiler.register('MY_FUNC', (...args) => {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(args.join('-'));
+            }, 10);
+        });
+    });
+
+    const out = await compiler.exec(`
+      RETURN MY_FUNC('foo', 'bar')
+  `);
+
+    console.log(out); // foo-bar
 }
 
 test();

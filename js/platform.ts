@@ -1,7 +1,6 @@
 import isNodeJS from './is-node';
-import Global = NodeJS.Global;
 
-export class Platform implements Global {
+export class Platform {
     public Array: typeof Array;
     public ArrayBuffer: typeof ArrayBuffer;
     public Boolean: typeof Boolean;
@@ -13,7 +12,7 @@ export class Platform implements Global {
     public Float32Array: typeof Float32Array;
     public Float64Array: typeof Float64Array;
     public Function: typeof Function;
-    public GLOBAL: NodeJS.Global;
+    public GLOBAL: any;
     public Infinity: typeof Infinity;
     public Int16Array: typeof Int16Array;
     public Int32Array: typeof Int32Array;
@@ -52,14 +51,14 @@ export class Platform implements Global {
     public escape: (str: string) => string;
     public eval: typeof eval;
     public gc: () => void;
-    public global: NodeJS.Global;
+    public global: any;
     public isFinite: typeof isFinite;
     public isNaN: typeof isNaN;
     public parseFloat: typeof parseFloat;
     public parseInt: typeof parseInt;
     public process: NodeJS.Process;
     public queueMicrotask: typeof queueMicrotask;
-    public root: NodeJS.Global;
+    public root: any;
     public setImmediate: (
         callback: (...args: any[]) => void,
         ...args: any[]
@@ -86,7 +85,7 @@ export class Platform implements Global {
     [key: string]: any;
 
     constructor(encoding = 'utf-8') {
-        const env: Global = (isNodeJS ? global : window) as any;
+        const env = (isNodeJS ? global : window) as any;
 
         this.Array = env.Array;
         this.ArrayBuffer = env.ArrayBuffer;
