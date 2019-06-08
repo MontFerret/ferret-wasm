@@ -188,9 +188,25 @@ export class Platform {
                     const body = res.body;
 
                     body.getReader = () => {
-                        const stream = new webStreams.ReadableStream(
-                            res.buffer(),
-                        );
+                        const stream = new webStreams.ReadableStream({
+                            start(controller: ReadableByteStreamController) {
+                                res.body.on('data', chunk => {
+                                    controller.enqueue(chunk);
+                                });
+
+                                res.body.on('end', () => {
+                                    controller.close();
+                                });
+
+                                // res.body.on('close', () => {
+                                //     controller.close();
+                                // });
+
+                                res.body.on('error', err => {
+                                    controller.error(err);
+                                });
+                            },
+                        });
 
                         return stream.getReader();
                     };

@@ -6,25 +6,24 @@ create()
 
         if (!isNode) {
             window.ferret = compiler;
-        } else {
-            if (process.argv.length > 2) {
-                console.log(process.argv);
-                const fs = require('fs');
-                const file = fs.readFileSync(process.argv[2]);
+        } else if (process.argv.length > 2) {
+            const fs = require('fs');
+            const file = fs.readFileSync(process.argv[2]);
 
-                debugger;
-                return compiler.exec(file.toString());
-            }
+            debugger;
+            return compiler.exec(file.toString());
         }
 
         return '';
     })
     .then(out => {
+        console.log('success');
+
         if (out) {
             console.log(out);
         }
 
-        console.log('done');
+        process.exit(0);
     })
     .catch(err => {
         console.log('failure');
