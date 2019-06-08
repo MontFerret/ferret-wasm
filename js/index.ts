@@ -6,6 +6,8 @@ declare var WebAssembly: any;
 
 const MODULE_PATH = 'ferret.wasm';
 
+export const isNode = isNodeJS;
+
 export async function create(module?: string): Promise<Engine> {
     let file;
 

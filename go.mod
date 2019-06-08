@@ -13,5 +13,6 @@ require (
 	github.com/mafredri/cdp v0.23.2 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.14.3 // indirect
+	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0 // indirect
 	golang.org/x/net v0.0.0-20190603091049-60506f45cf65 // indirect
 )

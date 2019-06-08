@@ -12,7 +12,7 @@ npm install @montferret/ferret-wasm
 
 ## Limitations
 
-- Scraping stack is not enabled yet
+-   Supports only static HTTP driver
 
 ## Quick start
 

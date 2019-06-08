@@ -2,11 +2,13 @@ package ferret
 
 import (
 	"context"
+	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"strconv"
 	"syscall/js"
 	"time"
 
 	"github.com/MontFerret/ferret/pkg/compiler"
+	"github.com/MontFerret/ferret/pkg/drivers"
 	"github.com/MontFerret/ferret/pkg/runtime"
 	"github.com/MontFerret/ferret/pkg/runtime/core"
 	"github.com/MontFerret/ferret/pkg/runtime/values"
@@ -17,6 +19,7 @@ import (
 type Ferret struct {
 	version  Version
 	compiler *compiler.FqlCompiler
+	driver   drivers.Driver
 	programs map[string]*runtime.Program
 }
 
@@ -24,6 +27,7 @@ func New(version Version) *Ferret {
 	f := new(Ferret)
 	f.version = version
 	f.compiler = compiler.New()
+	f.driver = http.NewDriver()
 	f.programs = make(map[string]*runtime.Program)
 
 	return f
@@ -133,7 +137,7 @@ func (f *Ferret) Execute(query, params js.Value) *Result {
 }
 
 func (f *Ferret) execProgram(p *runtime.Program, paramValues js.Value) *Result {
-	ctx := context.Background()
+	ctx := drivers.WithContext(context.Background(), f.driver)
 
 	out, err := p.Run(ctx, runtime.WithParams(toParams(paramValues)))
 

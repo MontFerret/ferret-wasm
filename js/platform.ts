@@ -172,7 +172,51 @@ export class Platform {
             const util = require('util');
             this.encoder = new util.TextEncoder(encoding);
             this.decoder = new util.TextDecoder(encoding);
-            this['fetch'] = require('node-fetch');
+
+            const webStreams = require('web-streams-polyfill/dist/ponyfill');
+
+            this['ReadableStream'] = webStreams.ReadableStream;
+            this['WritableStream'] = webStreams.WritableStream;
+            this['ByteLengthQueuingStrategy'] =
+                webStreams.ByteLengthQueuingStrategy;
+            this['CountQueuingStrategy'] = webStreams.CountQueuingStrategy;
+            this['TransformStream'] = webStreams.TransformStream;
+
+            const fetch = require('cross-fetch/dist/node-ponyfill');
+            this['fetch'] = (...args: any[]) => {
+                return fetch(...args).then(res => {
+                    const body = res.body;
+
+                    body.getReader = () => {
+                        const stream = new webStreams.ReadableStream({
+                            start(controller: ReadableByteStreamController) {
+                                res.body.on('data', chunk => {
+                                    controller.enqueue(chunk);
+                                });
+
+                                res.body.on('end', () => {
+                                    controller.close();
+                                });
+
+                                // res.body.on('close', () => {
+                                //     controller.close();
+                                // });
+
+                                res.body.on('error', err => {
+                                    controller.error(err);
+                                });
+                            },
+                        });
+
+                        return stream.getReader();
+                    };
+
+                    return res;
+                });
+            };
+            this['Headers'] = fetch.Headers;
+            this['Request'] = fetch.Request;
+            this['Response'] = fetch.Response;
         } else {
             let outputBuf = '';
             const platform = this;

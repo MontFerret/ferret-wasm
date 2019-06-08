@@ -26,8 +26,9 @@
         "url": "https://github.com/MontFerret/ferret-wasm/issues"
     },
     "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
-    "peerDependencies": {
-        "node-fetch": "^2.6.0"
+    "dependencies": {
+        "cross-fetch": "^3.0.3",
+        "web-streams-polyfill": "^2.0.3"
     },
     "devDependencies": {
         "@types/chai": "^4.1.7",
@@ -46,8 +47,5 @@
         "tslint-config-airbnb": "^5.11.1",
         "tslint-config-prettier": "^1.18.0",
         "typescript": "^3.5.1"
-    },
-    "dependencies": {
-        "node-fetch": "^2.6.0"
     }
 }
