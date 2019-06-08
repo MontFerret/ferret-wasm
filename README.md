@@ -3,6 +3,7 @@
 Ferret compiler and runtime ported to WASM
 
 [![npm version](https://badge.fury.io/js/%40montferret%2Fferret-wasm.svg)](https://badge.fury.io/js/%40montferret%2Fferret-wasm)
+[![Build Status](https://secure.travis-ci.org/montferret/ferret-wasm.svg?branch=master)](http://travis-ci.org/montferret/ferret-wasm)
 
 ## Installation
 
