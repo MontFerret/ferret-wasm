@@ -18,6 +18,9 @@ compile:
 	go build -v -o ${DIR_BIN}/ferret.wasm -ldflags "-X main.version=${PACKAGE_VERSION} -X main.ferretVersion=${FERRET_VERSION}" main.go && \
 	${NODE_BIN}/tsc -b ./tsconfig.json
 
+test:
+	${NODE_BIN}/mocha
+
 fmt:
 	go fmt ./ferret/... && \
 	${NODE_BIN}/pretty-quick
