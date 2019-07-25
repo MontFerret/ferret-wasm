@@ -2,13 +2,13 @@ package ferret
 
 import (
 	"context"
-	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"strconv"
 	"syscall/js"
 	"time"
 
 	"github.com/MontFerret/ferret/pkg/compiler"
 	"github.com/MontFerret/ferret/pkg/drivers"
+	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"github.com/MontFerret/ferret/pkg/runtime"
 	"github.com/MontFerret/ferret/pkg/runtime/core"
 	"github.com/MontFerret/ferret/pkg/runtime/values"

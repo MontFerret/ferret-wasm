@@ -1,8 +1,9 @@
 package ferret
 
 import (
-	"github.com/pkg/errors"
 	"syscall/js"
+
+	"github.com/pkg/errors"
 )
 
 func TypeError(name string, expected, actual js.Type) error {

@@ -1,8 +1,9 @@
 package ferret
 
 import (
-	"github.com/MontFerret/ferret/pkg/runtime/core"
 	"syscall/js"
+
+	"github.com/MontFerret/ferret/pkg/runtime/core"
 )
 
 func fromJsValue(input js.Value) interface{} {

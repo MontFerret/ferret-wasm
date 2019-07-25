@@ -1,6 +1,6 @@
 {
     "name": "@montferret/ferret-wasm",
-    "version": "0.7.3",
+    "version": "1.0.0",
     "description": "Ferret compiler and runtime ported to WASM",
     "main": "dist/index.js",
     "scripts": {
@@ -27,7 +27,7 @@
     },
     "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
     "dependencies": {
-        "cross-fetch": "^3.0.3",
+        "cross-fetch": "^3.0.4",
         "web-streams-polyfill": "^2.0.3"
     },
     "devDependencies": {
@@ -36,16 +36,16 @@
         "@types/node": "^12.0.4",
         "@types/sinon": "^7.0.12",
         "chai": "^4.2.0",
-        "husky": "^2.4.0",
-        "mocha": "^6.1.4",
-        "prettier": "^1.17.1",
+        "husky": "^3.0.1",
+        "mocha": "^6.2.0",
+        "prettier": "^1.18.2",
         "pretty-quick": "^1.11.0",
         "sinon": "^7.3.2",
         "source-map-support": "^0.5.12",
-        "ts-node": "^8.2.0",
-        "tslint": "^5.17.0",
+        "ts-node": "^8.3.0",
+        "tslint": "^5.18.0",
         "tslint-config-airbnb": "^5.11.1",
         "tslint-config-prettier": "^1.18.0",
-        "typescript": "^3.5.1"
+        "typescript": "^3.5.3"
     }
 }
