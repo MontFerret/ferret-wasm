@@ -52,6 +52,9 @@ async function test() {
     const out2 = await program.run({ factor: 3 });
 
     console.log(out2); // [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
+
+    // Destroy when you are done with the program
+    program.destroy();
 }
 
 test();
