@@ -19,7 +19,7 @@ import (
 type Ferret struct {
 	version  Version
 	compiler *compiler.FqlCompiler
-	driver   drivers.Driver
+	drivers  []drivers.Driver
 	programs map[string]*runtime.Program
 }
 
@@ -27,7 +27,9 @@ func New(version Version) *Ferret {
 	f := new(Ferret)
 	f.version = version
 	f.compiler = compiler.New()
-	f.driver = http.NewDriver()
+	f.drivers = []drivers.Driver{
+		http.NewDriver(),
+	}
 	f.programs = make(map[string]*runtime.Program)
 
 	return f
@@ -116,6 +118,19 @@ func (f *Ferret) Compile(query js.Value) *Result {
 	return Ok([]byte(id))
 }
 
+func (f *Ferret) Destroy(id js.Value) *Result {
+	programID := id.String()
+	_, found := f.programs[programID]
+
+	if !found {
+		return Error(errors.New("invalid program id"))
+	}
+
+	delete(f.programs, programID)
+
+	return OkEmpty()
+}
+
 func (f *Ferret) Run(id, params js.Value) *Result {
 	program, found := f.programs[id.String()]
 
@@ -137,7 +152,11 @@ func (f *Ferret) Execute(query, params js.Value) *Result {
 }
 
 func (f *Ferret) execProgram(p *runtime.Program, paramValues js.Value) *Result {
-	ctx := drivers.WithContext(context.Background(), f.driver)
+	ctx := context.Background()
+
+	for _, driver := range f.drivers {
+		ctx = drivers.WithContext(ctx, driver)
+	}
 
 	out, err := p.Run(ctx, runtime.WithParams(toParams(paramValues)))
 

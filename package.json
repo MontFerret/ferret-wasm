@@ -7,7 +7,8 @@
         "compile": "tsc -b ./tsconfig.json",
         "build": "make compile",
         "test": "mocha",
-        "prepublish": "npm run build && npm run test"
+        "prepublish": "npm run build && npm run test",
+        "fmt": "pretty-quick"
     },
     "repository": {
         "type": "git",

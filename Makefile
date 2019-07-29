@@ -5,7 +5,7 @@ export GOARCH=wasm
 export NODE_ENV=production
 
 PACKAGE_VERSION?=$(shell node -pe "require('./package.json').version")
-FERRET_VERSION=0.7.0
+FERRET_VERSION=0.8.0
 DIR_BIN=./dist
 NODE_BIN=./node_modules/.bin
 GO_ROOT=$(go env GOROOT)

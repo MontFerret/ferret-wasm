@@ -16,6 +16,7 @@ export type CompilerCallback<T> = (err?: string, data?: T) => void;
 export interface Compiler {
     version(): CompilerResult<Version>;
     compile(query: string): CompilerResult<string>;
+    destroy(id: string): CompilerResult<void>;
     run<T>(
         id: string,
         args: object,

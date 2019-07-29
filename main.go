@@ -41,6 +41,13 @@ func main() {
 
 		return f.Compile(args[0])
 	}))
+	module.Set("destroy", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 1 {
+			return ferret.Error(errors.New("Missed query"))
+		}
+
+		return f.Destroy(args[0])
+	}))
 	module.Set("run", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) < 3 {
 			return ferret.Error(errors.New("Missed arguments"))
