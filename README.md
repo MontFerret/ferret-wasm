@@ -13,7 +13,7 @@ npm install @montferret/ferret-wasm
 
 ## Limitations
 
--   Supports only static HTTP driver
+-   Supports only static HTTP driver (Go WASM does not support WebSocket yet)
 
 ## Quick start
 
