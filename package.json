@@ -29,20 +29,20 @@
     "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
     "dependencies": {
         "cross-fetch": "^3.0.4",
-        "web-streams-polyfill": "^2.0.3"
+        "web-streams-polyfill": "^2.0.4"
     },
     "devDependencies": {
         "@types/chai": "^4.1.7",
         "@types/mocha": "^5.2.7",
-        "@types/node": "^12.0.4",
-        "@types/sinon": "^7.0.12",
+        "@types/node": "^12.7.0",
+        "@types/sinon": "^7.0.13",
         "chai": "^4.2.0",
-        "husky": "^3.0.1",
+        "husky": "^3.0.2",
         "mocha": "^6.2.0",
         "prettier": "^1.18.2",
-        "pretty-quick": "^1.11.0",
-        "sinon": "^7.3.2",
-        "source-map-support": "^0.5.12",
+        "pretty-quick": "^1.11.1",
+        "sinon": "^7.4.1",
+        "source-map-support": "^0.5.13",
         "ts-node": "^8.3.0",
         "tslint": "^5.18.0",
         "tslint-config-airbnb": "^5.11.1",

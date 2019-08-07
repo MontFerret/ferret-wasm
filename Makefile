@@ -5,13 +5,17 @@ export GOARCH=wasm
 export NODE_ENV=production
 
 PACKAGE_VERSION?=$(shell node -pe "require('./package.json').version")
-FERRET_VERSION=0.8.0
+FERRET_VERSION=0.8.2
 DIR_BIN=./dist
 NODE_BIN=./node_modules/.bin
 GO_ROOT=$(go env GOROOT)
 
+default: build
+
+build: install compile test
+
 install:
-	rm -rf go.sum && go mod vendor && go get
+	go mod vendor && go mod tidy
 
 compile:
 	rm -rf ${DIR_BIN} && \
