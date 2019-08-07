@@ -2,7 +2,7 @@
 
 ### Changed
 
--   Upgraded Ferret to v0.8.1
+-   Upgraded Ferret to v0.8.2
 
 ### Added
 
