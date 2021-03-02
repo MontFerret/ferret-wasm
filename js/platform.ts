@@ -1,5 +1,4 @@
 import isNodeJS from './is-node';
-import fs from 'fs';
 
 export class Platform {
     public Array: typeof Array;
@@ -82,6 +81,7 @@ export class Platform {
     public performance: any;
     public encoder: TextEncoder;
     public decoder: TextDecoder;
+    public env: Record<string, string | undefined>;
 
     [key: string]: any;
 
@@ -152,6 +152,7 @@ export class Platform {
         this.undefined = env.undefined;
         this.unescape = env.unescape;
         this.v8debug = env.v8debug;
+        this.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 
         if (isNodeJS) {
             const fs = require('fs');
@@ -221,7 +222,7 @@ export class Platform {
         } else {
             let outputBuf = '';
             const platform = this;
-            fs.writeSync;
+
             this.fs = {
                 constants: {
                     O_WRONLY: -1,

@@ -32,9 +32,10 @@ export async function create(module?: string): Promise<Engine> {
     }
 
     const go = new Go();
+    // TODO: Use WebAssembly.instantiateStreaming
     const asm = await WebAssembly.instantiate(file, go.importObject);
 
-    go.run(asm.instance);
+    await go.run(asm.instance);
 
     return new Engine(go);
 }

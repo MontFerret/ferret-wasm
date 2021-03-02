@@ -7,6 +7,7 @@ describe('Compiler.destroy', () => {
     let compiler: Engine;
 
     beforeEach(async () => {
+        debugger;
         compiler = await create(path.join(__dirname, '../../dist/ferret.wasm'));
     });
 
