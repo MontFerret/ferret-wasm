@@ -6,19 +6,16 @@ import { Engine } from '../../js/engine';
 describe('Compiler.register', () => {
     let compiler: Engine;
 
-    before(done => {
-        create(path.join(__dirname, '../../dist/ferret.wasm'))
-            .then(engine => {
-                compiler = engine;
-            })
-            .finally(done);
+    beforeEach(async () => {
+        debugger;
+        compiler = await create(path.join(__dirname, '../../dist/ferret.wasm'));
     });
 
     it('should register and execute a user defined functions', () => {
         const values: any[] = [];
 
         compiler.register('test', (...args: any[]) => {
-            args.forEach(i => values.push(i));
+            args.forEach((i) => values.push(i));
         });
 
         return compiler
@@ -29,7 +26,7 @@ describe('Compiler.register', () => {
     });
 
     it('should handle return values', () => {
-        compiler.register('test2', (...args: any[]) => {
+        compiler.register('test2', (..._args: any[]) => {
             return 'FOO';
         });
 
@@ -41,14 +38,14 @@ describe('Compiler.register', () => {
                 RETURN res + "_" + "BAR"
             `,
             )
-            .then(out => {
+            .then((out) => {
                 expect(out).to.eql('FOO_BAR');
             });
     });
 
     it('should handle async function', () => {
         compiler.register('async1', async (..._: any[]) => {
-            return new Promise(resolve => {
+            return new Promise((resolve) => {
                 setTimeout(() => {
                     resolve('FOO');
                 }, 10);
@@ -63,7 +60,7 @@ describe('Compiler.register', () => {
                 RETURN res + "_" + "BAR"
             `,
             )
-            .then(out => {
+            .then((out) => {
                 expect(out).to.eql('FOO_BAR');
             });
     });

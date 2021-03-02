@@ -4,13 +4,14 @@ import { Compiler, createCallback, RuntimeFunction, Version } from './compiler';
 import { assert } from './helpers';
 
 export class Engine {
+    // @ts-ignore
     private readonly __go: Go;
     private readonly __compiler: Compiler;
     private readonly __version: Readonly<Version>;
 
     constructor(go: Go) {
         this.__go = go;
-        this.__compiler = go.platform.ferret;
+        this.__compiler = go.platform.$ferret;
 
         const res = this.__compiler.version();
 

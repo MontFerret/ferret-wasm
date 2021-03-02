@@ -1,4 +1,4 @@
-export function assert(input): void {
+export function assert(input: any): void {
     if (input == null) {
         throw new Error('Unexpected result');
     }

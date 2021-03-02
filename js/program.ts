@@ -37,7 +37,7 @@ export class Program {
             throw new Error(res.error);
         }
 
-        delete this.__compiler;
-        delete this.__id;
+        (this as any).__compiler = undefined;
+        (this as any).__id = undefined;
     }
 }

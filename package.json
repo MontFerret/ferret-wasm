@@ -4,9 +4,10 @@
     "description": "Ferret compiler and runtime ported to WASM",
     "main": "dist/index.js",
     "scripts": {
+        "lint": "eslint --fix",
         "compile": "tsc -b ./tsconfig.json",
         "build": "make compile",
-        "test": "mocha",
+        "test": "mocha $NODE_OPTS",
         "prepublish": "npm run build && npm run test",
         "fmt": "pretty-quick"
     },
@@ -28,25 +29,32 @@
     },
     "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
     "dependencies": {
-        "cross-fetch": "^3.0.4",
-        "web-streams-polyfill": "^2.0.4"
+        "cross-fetch": "^3.0.6",
+        "web-streams-polyfill": "^3.0.2"
     },
     "devDependencies": {
-        "@types/chai": "^4.1.7",
-        "@types/mocha": "^5.2.7",
-        "@types/node": "^12.7.0",
-        "@types/sinon": "^7.0.13",
-        "chai": "^4.2.0",
-        "husky": "^3.0.2",
-        "mocha": "^6.2.0",
-        "prettier": "^1.18.2",
-        "pretty-quick": "^1.11.1",
-        "sinon": "^7.4.1",
-        "source-map-support": "^0.5.13",
-        "ts-node": "^8.3.0",
-        "tslint": "^5.18.0",
-        "tslint-config-airbnb": "^5.11.1",
-        "tslint-config-prettier": "^1.18.0",
-        "typescript": "^3.5.3"
+        "@types/chai": "^4.2.15",
+        "@types/mocha": "^8.2.1",
+        "@types/node": "^14.14.31",
+        "@types/sinon": "^9.0.10",
+        "@typescript-eslint/eslint-plugin": "^4.16.1",
+        "@typescript-eslint/parser": "^4.16.1",
+        "chai": "^4.3.0",
+        "cross-env": "^7.0.37.0.3",
+        "eslint": "^7.21.0",
+        "eslint-config-airbnb-base": "^14.2.1",
+        "eslint-config-airbnb-typescript": "^12.3.1",
+        "eslint-config-prettier": "^8.1.0",
+        "eslint-plugin-import": "^2.22.1",
+        "eslint-plugin-prettier": "^3.3.1",
+        "husky": "^5.1.2",
+        "mocha": "^8.3.0",
+        "prettier": "^2.2.1",
+        "pretty-quick": "^3.1.0",
+        "rimraf": "^3.0.2",
+        "sinon": "^9.2.4",
+        "source-map-support": "^0.5.19",
+        "ts-node": "^9.1.1",
+        "typescript": "^4.2.2"
     }
 }
