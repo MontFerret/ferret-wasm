@@ -18,7 +18,7 @@ import (
 
 type Ferret struct {
 	version  Version
-	compiler *compiler.FqlCompiler
+	compiler *compiler.Compiler
 	drivers  []drivers.Driver
 	programs map[string]*runtime.Program
 }

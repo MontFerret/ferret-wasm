@@ -6,12 +6,9 @@ import { Engine } from '../../js/engine';
 describe('Compiler.destroy', () => {
     let compiler: Engine;
 
-    before(done => {
-        create(path.join(__dirname, '../../dist/ferret.wasm'))
-            .then(engine => {
-                compiler = engine;
-            })
-            .finally(done);
+    beforeEach(async () => {
+        debugger;
+        compiler = await create(path.join(__dirname, '../../dist/ferret.wasm'));
     });
 
     it('should destroy compiled program', async () => {

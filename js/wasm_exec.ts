@@ -2,81 +2,92 @@ import { Platform } from './platform';
 
 export interface ImportObject {
     go: {
-        'runtime.clearTimeoutEvent': (sp) => void;
-        'syscall/js.valueInvoke': (sp) => void;
-        debug: (value) => void;
-        'runtime.wasmExit': (sp) => void;
-        'syscall/js.valueSet': (sp) => void;
-        'runtime.walltime': (sp) => void;
-        'syscall/js.valueNew': (sp) => void;
-        'syscall/js.valueInstanceOf': (sp) => void;
-        'syscall/js.valueLoadString': (sp) => void;
-        'syscall/js.stringVal': (sp) => void;
-        'syscall/js.valueIndex': (sp) => void;
-        'syscall/js.valueLength': (sp) => void;
-        'syscall/js.valueCall': (sp) => void;
-        'runtime.wasmWrite': (sp) => void;
-        'runtime.nanotime': (sp) => void;
-        'runtime.getRandomData': (sp) => void;
-        'syscall/js.valueGet': (sp) => void;
-        'syscall/js.valuePrepareString': (sp) => void;
-        'runtime.scheduleTimeoutEvent': (sp) => void;
-        'syscall/js.valueSetIndex': (sp) => void;
+        'runtime.wasmExit': (sp: number) => void;
+        'runtime.wasmWrite': (sp: number) => void;
+        'runtime.clearTimeoutEvent': (sp: number) => void;
+        'syscall/js.valueInvoke': (sp: number) => void;
+        debug: (value: any) => void;
+        'syscall/js.valueSet': (sp: number) => void;
+        'syscall/js.valueDelete': (sp: number) => void;
+        'runtime.walltime': (sp: number) => void;
+        'syscall/js.valueNew': (sp: number) => void;
+        'syscall/js.valueInstanceOf': (sp: number) => void;
+        'syscall/js.copyBytesToGo': (sp: number) => void;
+        'syscall/js.copyBytesToJS': (sp: number) => void;
+        'syscall/js.valueLoadString': (sp: number) => void;
+        'syscall/js.stringVal': (sp: number) => void;
+        'syscall/js.valueIndex': (sp: number) => void;
+        'syscall/js.valueLength': (sp: number) => void;
+        'syscall/js.valueCall': (sp: number) => void;
+        'runtime.resetMemoryDataView': (sp: number) => void;
+        'runtime.nanotime1': (sp: number) => void;
+        'runtime.walltime1': (sp: number) => void;
+        'runtime.nanotime': (sp: number) => void;
+        'runtime.getRandomData': (sp: number) => void;
+        'syscall/js.finalizeRef': (sp: number) => void;
+        'syscall/js.valueGet': (sp: number) => void;
+        'syscall/js.valuePrepareString': (sp: number) => void;
+        'runtime.scheduleTimeoutEvent': (sp: number) => void;
+        'syscall/js.valueSetIndex': (sp: number) => void;
     };
 }
 
-export class Go<T = any> {
+export class Go {
     public platform: Platform;
     public argv: string[];
-    public env: object;
+    public env: { [key: string]: any };
     public exit: (code: any) => void;
-    public importObject: ImportObject;
+    public importObject: any;
     public exited: boolean;
+    // @ts-ignore
+    public mem: DataView;
 
     private readonly _exitPromise: Promise<any>;
-    private _resolveExitPromise: Function;
+    private _resolveExitPromise?: Function;
     private _scheduledTimeouts: Map<any, any>;
     private _nextCallbackTimeoutID: number;
     private _inst: any;
-    private _values: any;
-    private _refs: any;
-    private _pendingEvent?: any;
+    // @ts-ignore
+    private _values: any[];
+    // @ts-ignore
+    private _pendingEvent: any;
+    private _goRefCounts: any[];
+    private _ids: Map<number | null, number>;
+    private _idPool: any[];
 
     constructor() {
         this.platform = new Platform();
         this.argv = ['js'];
-        this.env = {};
-        this.exited = false;
-        this.exit = code => {
+        this.env = this.platform.env;
+        this.exit = (code) => {
             if (code !== 0) {
                 console.warn('exit code:', code);
             }
         };
-        this._resolveExitPromise = () => {};
-        this._exitPromise = new Promise(resolve => {
+        this._exitPromise = new Promise((resolve) => {
             this._resolveExitPromise = resolve;
         });
+        this._pendingEvent = null;
         this._scheduledTimeouts = new Map();
         this._nextCallbackTimeoutID = 1;
+        this.exited = false;
+        this._goRefCounts = [];
+        this._ids = new Map();
+        this._idPool = [];
 
-        const mem = () => {
-            // The buffer may change when requesting more memory.
-            return new DataView(this._inst.exports.mem.buffer);
+        const setInt64 = (addr: number, v: number) => {
+            this.mem.setUint32(addr + 0, v, true);
+            this.mem.setUint32(addr + 4, Math.floor(v / 4294967296), true);
         };
 
-        const setInt64 = (addr, v) => {
-            mem().setUint32(addr + 0, v, true);
-            mem().setUint32(addr + 4, Math.floor(v / 4294967296), true);
-        };
-
-        const getInt64 = addr => {
-            const low = mem().getUint32(addr + 0, true);
-            const high = mem().getInt32(addr + 4, true);
+        const getInt64 = (addr: number) => {
+            const low = this.mem.getUint32(addr + 0, true);
+            const high = this.mem.getInt32(addr + 4, true);
             return low + high * 4294967296;
         };
 
-        const loadValue = addr => {
-            const f = mem().getFloat64(addr, true);
+        const loadValue = (addr: number) => {
+            const f = this.mem.getFloat64(addr, true);
             if (f === 0) {
                 return undefined;
             }
@@ -84,75 +95,67 @@ export class Go<T = any> {
                 return f;
             }
 
-            const id = mem().getUint32(addr, true);
+            const id = this.mem.getUint32(addr, true);
             return this._values[id];
         };
 
-        const storeValue = (addr, v) => {
+        const storeValue = (addr: number, v: number) => {
             const nanHead = 0x7ff80000;
 
-            if (typeof v === 'number') {
+            if (typeof v === 'number' && v !== 0) {
                 if (isNaN(v)) {
-                    mem().setUint32(addr + 4, nanHead, true);
-                    mem().setUint32(addr, 0, true);
+                    this.mem.setUint32(addr + 4, nanHead, true);
+                    this.mem.setUint32(addr, 0, true);
                     return;
                 }
-                if (v === 0) {
-                    mem().setUint32(addr + 4, nanHead, true);
-                    mem().setUint32(addr, 1, true);
-                    return;
-                }
-                mem().setFloat64(addr, v, true);
+                this.mem.setFloat64(addr, v, true);
                 return;
             }
 
-            switch (v) {
-                case undefined:
-                    mem().setFloat64(addr, 0, true);
-                    return;
-                case null:
-                    mem().setUint32(addr + 4, nanHead, true);
-                    mem().setUint32(addr, 2, true);
-                    return;
-                case true:
-                    mem().setUint32(addr + 4, nanHead, true);
-                    mem().setUint32(addr, 3, true);
-                    return;
-                case false:
-                    mem().setUint32(addr + 4, nanHead, true);
-                    mem().setUint32(addr, 4, true);
-                    return;
+            if (v === undefined) {
+                this.mem.setFloat64(addr, 0, true);
+                return;
             }
 
-            let ref = this._refs.get(v);
-            if (ref === undefined) {
-                ref = this._values.length;
-                this._values.push(v);
-                this._refs.set(v, ref);
+            let id = this._ids.get(v);
+            if (id === undefined) {
+                id = this._idPool.pop();
+                if (id === undefined) {
+                    id = this._values.length;
+                }
+                this._values[id] = v;
+                this._goRefCounts[id] = 0;
+                this._ids.set(v, id);
             }
+            this._goRefCounts[id]++;
             let typeFlag = 0;
             switch (typeof v) {
-                case 'string':
-                    typeFlag = 1;
+                case 'object':
+                    if (v !== null) {
+                        typeFlag = 1;
+                    }
                     break;
-                case 'symbol':
+                case 'string':
                     typeFlag = 2;
                     break;
-                case 'function':
+                case 'symbol':
                     typeFlag = 3;
                     break;
+                case 'function':
+                    typeFlag = 4;
+                    break;
             }
-            mem().setUint32(addr + 4, nanHead | typeFlag, true);
-            mem().setUint32(addr, ref, true);
+            this.mem.setUint32(addr + 4, nanHead | typeFlag, true);
+            this.mem.setUint32(addr, id, true);
         };
 
-        const loadSlice = addr => {
+        const loadSlice = (addr: number) => {
             const array = getInt64(addr + 0);
             const len = getInt64(addr + 8);
             return new Uint8Array(this._inst.exports.mem.buffer, array, len);
         };
 
-        const loadSliceOfValues = addr => {
+        const loadSliceOfValues = (addr: number) => {
             const array = getInt64(addr + 0);
             const len = getInt64(addr + 8);
             const a = new Array(len);
@@ -162,7 +165,7 @@ export class Go<T = any> {
             return a;
         };
 
-        const loadString = addr => {
+        const loadString = (addr: number) => {
             const saddr = getInt64(addr + 0);
             const len = getInt64(addr + 8);
             return this.platform.decoder.decode(
@@ -179,44 +182,59 @@ export class Go<T = any> {
                 // This changes the SP, thus we have to update the SP used by the imported function.
 
                 // func wasmExit(code int32)
-                'runtime.wasmExit': sp => {
-                    const code = mem().getInt32(sp + 8, true);
+                'runtime.wasmExit': (sp: number) => {
+                    sp >>>= 0;
+                    const code = this.mem.getInt32(sp + 8, true);
                     this.exited = true;
                     delete this._inst;
+                    // @ts-ignores
                     delete this._values;
-                    delete this._refs;
+                    delete (this as any)._goRefCounts;
+                    delete (this as any)._ids;
+                    delete (this as any)._idPool;
                     this.exit(code);
                 },
 
                 // func wasmWrite(fd uintptr, p unsafe.Pointer, n int32)
-                'runtime.wasmWrite': sp => {
+                'runtime.wasmWrite': (sp: number) => {
+                    sp >>>= 0;
                     const fd = getInt64(sp + 8);
                     const p = getInt64(sp + 16);
-                    const n = mem().getInt32(sp + 24, true);
+                    const n = this.mem.getInt32(sp + 24, true);
                     this.platform.fs.writeSync(
                         fd,
                         new Uint8Array(this._inst.exports.mem.buffer, p, n),
                     );
                 },
 
-                // func nanotime() int64
-                'runtime.nanotime': sp => {
+                // func resetMemoryDataView()
+                // eslint-ignore-next-line
+                // @ts-ignore
+                'runtime.resetMemoryDataView': (sp: number) => {
+                    sp >>>= 0;
+                    this.mem = new DataView(this._inst.exports.mem.buffer);
+                },
+
+                // func nanotime1() int64
+                'runtime.nanotime1': (sp: number) => {
+                    sp >>>= 0;
                     setInt64(
                         sp + 8,
-                        (timeOrigin + this.platform.performance.now()) *
-                            1000000,
+                        (timeOrigin + this.platform.performance.now()) * 1000000,
                     );
                 },
 
-                // func walltime() (sec int64, nsec int32)
-                'runtime.walltime': sp => {
+                // func walltime1() (sec int64, nsec int32)
+                'runtime.walltime1': (sp: number) => {
+                    sp >>>= 0;
                     const msec = new Date().getTime();
                     setInt64(sp + 8, msec / 1000);
-                    mem().setInt32(sp + 16, (msec % 1000) * 1000000, true);
+                    this.mem.setInt32(sp + 16, (msec % 1000) * 1000000, true);
                 },
 
                 // func scheduleTimeoutEvent(delay int64) int32
-                'runtime.scheduleTimeoutEvent': sp => {
+                'runtime.scheduleTimeoutEvent': (sp: number) => {
+                    sp >>>= 0;
                     const id = this._nextCallbackTimeoutID;
                     this._nextCallbackTimeoutID++;
                     this._scheduledTimeouts.set(
@@ -224,42 +242,68 @@ export class Go<T = any> {
                         setTimeout(
                             () => {
                                 this._resume();
+                                while (this._scheduledTimeouts.has(id)) {
+                                    // for some reason Go failed to register the timeout event, log and try again
+                                    // (temporary workaround for https://github.com/golang/go/issues/28975)
+                                    console.warn(
+                                        'scheduleTimeoutEvent: missed timeout event',
+                                    );
+                                    this._resume();
+                                }
                             },
                             getInt64(sp + 8) + 1, // setTimeout has been seen to fire up to 1 millisecond early
                         ),
                     );
-                    mem().setInt32(sp + 16, id, true);
+                    this.mem.setInt32(sp + 16, id, true);
                 },
 
                 // func clearTimeoutEvent(id int32)
-                'runtime.clearTimeoutEvent': sp => {
-                    const id = mem().getInt32(sp + 8, true);
+                'runtime.clearTimeoutEvent': (sp: number) => {
+                    sp >>>= 0;
+                    const id = this.mem.getInt32(sp + 8, true);
                     clearTimeout(this._scheduledTimeouts.get(id));
                     this._scheduledTimeouts.delete(id);
                 },
 
                 // func getRandomData(r []byte)
-                'runtime.getRandomData': sp => {
+                'runtime.getRandomData': (sp: number) => {
+                    sp >>>= 0;
                     this.platform.crypto.getRandomValues(loadSlice(sp + 8));
                 },
 
+                // func finalizeRef(v ref)
+                'syscall/js.finalizeRef': (sp: number) => {
+                    sp >>>= 0;
+                    const id = this.mem.getUint32(sp + 8, true);
+                    this._goRefCounts[id]--;
+                    if (this._goRefCounts[id] === 0) {
+                        const v = this._values[id];
+                        this._values[id] = null;
+                        this._ids.delete(v);
+                        this._idPool.push(id);
+                    }
+                },
+
                 // func stringVal(value string) ref
-                'syscall/js.stringVal': sp => {
-                    storeValue(sp + 24, loadString(sp + 8));
+                'syscall/js.stringVal': (sp: number) => {
+                    sp >>>= 0;
+                    storeValue(sp + 24, loadString(sp + 8) as any);
                 },
 
                 // func valueGet(v ref, p string) ref
-                'syscall/js.valueGet': sp => {
+                'syscall/js.valueGet': (sp: number) => {
+                    sp >>>= 0;
                     const result = Reflect.get(
                         loadValue(sp + 8),
                         loadString(sp + 16),
                     );
-                    sp = this._inst.exports.getsp(); // see comment above
+                    sp = this._inst.exports.getsp() >>> 0; // see comment above
                     storeValue(sp + 32, result);
                 },
 
                 // func valueSet(v ref, p string, x ref)
-                'syscall/js.valueSet': sp => {
+                'syscall/js.valueSet': (sp: number) => {
+                    sp >>>= 0;
                     Reflect.set(
                         loadValue(sp + 8),
                         loadString(sp + 16),
@@ -267,8 +311,18 @@ export class Go<T = any> {
                     );
                 },
 
+                // func valueDelete(v ref, p string)
+                'syscall/js.valueDelete': (sp: number) => {
+                    sp >>>= 0;
+                    Reflect.deleteProperty(
+                        loadValue(sp + 8),
+                        loadString(sp + 16),
+                    );
+                },
+
                 // func valueIndex(v ref, i int) ref
-                'syscall/js.valueIndex': sp => {
+                'syscall/js.valueIndex': (sp: number) => {
+                    sp >>>= 0;
                     storeValue(
                         sp + 24,
                         Reflect.get(loadValue(sp + 8), getInt64(sp + 16)),
@@ -276,7 +330,8 @@ export class Go<T = any> {
                 },
 
                 // valueSetIndex(v ref, i int, x ref)
-                'syscall/js.valueSetIndex': sp => {
+                'syscall/js.valueSetIndex': (sp: number) => {
+                    sp >>>= 0;
                     Reflect.set(
                         loadValue(sp + 8),
                         getInt64(sp + 16),
@@ -285,180 +340,244 @@ export class Go<T = any> {
                 },
 
                 // func valueCall(v ref, m string, args []ref) (ref, bool)
-                'syscall/js.valueCall': sp => {
+                'syscall/js.valueCall': (sp: number) => {
+                    sp >>>= 0;
                     try {
                         const v = loadValue(sp + 8);
                         const m = Reflect.get(v, loadString(sp + 16));
                         const args = loadSliceOfValues(sp + 32);
                         const result = Reflect.apply(m, v, args);
-                        sp = this._inst.exports.getsp(); // see comment above
+                        sp = this._inst.exports.getsp() >>> 0; // see comment above
                         storeValue(sp + 56, result);
-                        mem().setUint8(sp + 64, 1);
+                        this.mem.setUint8(sp + 64, 1);
                     } catch (err) {
                         storeValue(sp + 56, err);
-                        mem().setUint8(sp + 64, 0);
+                        this.mem.setUint8(sp + 64, 0);
                     }
                 },
 
                 // func valueInvoke(v ref, args []ref) (ref, bool)
-                'syscall/js.valueInvoke': sp => {
+                'syscall/js.valueInvoke': (sp: number) => {
+                    sp >>>= 0;
                     try {
                         const v = loadValue(sp + 8);
                         const args = loadSliceOfValues(sp + 16);
                         const result = Reflect.apply(v, undefined, args);
-                        sp = this._inst.exports.getsp(); // see comment above
+                        sp = this._inst.exports.getsp() >>> 0; // see comment above
                         storeValue(sp + 40, result);
-                        mem().setUint8(sp + 48, 1);
+                        this.mem.setUint8(sp + 48, 1);
                     } catch (err) {
                         storeValue(sp + 40, err);
-                        mem().setUint8(sp + 48, 0);
+                        this.mem.setUint8(sp + 48, 0);
                     }
                 },
 
                 // func valueNew(v ref, args []ref) (ref, bool)
-                'syscall/js.valueNew': sp => {
+                'syscall/js.valueNew': (sp: number) => {
+                    sp >>>= 0;
                     try {
                         const v = loadValue(sp + 8);
                         const args = loadSliceOfValues(sp + 16);
                         const result = Reflect.construct(v, args);
-                        sp = this._inst.exports.getsp(); // see comment above
+                        sp = this._inst.exports.getsp() >>> 0; // see comment above
                         storeValue(sp + 40, result);
-                        mem().setUint8(sp + 48, 1);
+                        this.mem.setUint8(sp + 48, 1);
                     } catch (err) {
                         storeValue(sp + 40, err);
-                        mem().setUint8(sp + 48, 0);
+                        this.mem.setUint8(sp + 48, 0);
                     }
                 },
 
                 // func valueLength(v ref) int
-                'syscall/js.valueLength': sp => {
+                'syscall/js.valueLength': (sp: number) => {
+                    sp >>>= 0;
                     setInt64(sp + 16, parseInt(loadValue(sp + 8).length));
                 },
 
                 // valuePrepareString(v ref) (ref, int)
-                'syscall/js.valuePrepareString': sp => {
+                'syscall/js.valuePrepareString': (sp: number) => {
+                    sp >>>= 0;
                     const str = this.platform.encoder.encode(
                         String(loadValue(sp + 8)),
                     );
-                    storeValue(sp + 16, str);
+                    storeValue(sp + 16, str as any);
                     setInt64(sp + 24, str.length);
                 },
 
                 // valueLoadString(v ref, b []byte)
-                'syscall/js.valueLoadString': sp => {
+                'syscall/js.valueLoadString': (sp: number) => {
+                    sp >>>= 0;
                     const str = loadValue(sp + 8);
                     loadSlice(sp + 16).set(str);
                 },
 
                 // func valueInstanceOf(v ref, t ref) bool
-                'syscall/js.valueInstanceOf': sp => {
-                    mem().setUint8(sp + 24, (loadValue(sp + 8) instanceof
-                        loadValue(sp + 16)) as any);
+                'syscall/js.valueInstanceOf': (sp: number) => {
+                    sp >>>= 0;
+                    this.mem.setUint8(
+                        sp + 24,
+                        loadValue(sp + 8) instanceof loadValue(sp + 16) ? 1 : 0,
+                    );
                 },
 
-                debug: value => {
+                // func copyBytesToGo(dst []byte, src ref) (int, bool)
+                'syscall/js.copyBytesToGo': (sp: number) => {
+                    sp >>>= 0;
+                    const dst = loadSlice(sp + 8);
+                    const src = loadValue(sp + 32);
+                    if (
+                        !(
+                            src instanceof Uint8Array ||
+                            src instanceof Uint8ClampedArray
+                        )
+                    ) {
+                        this.mem.setUint8(sp + 48, 0);
+                        return;
+                    }
+                    const toCopy = src.subarray(0, dst.length);
+                    dst.set(toCopy);
+                    setInt64(sp + 40, toCopy.length);
+                    this.mem.setUint8(sp + 48, 1);
+                },
+
+                // func copyBytesToJS(dst ref, src []byte) (int, bool)
+                'syscall/js.copyBytesToJS': (sp: number) => {
+                    sp >>>= 0;
+                    const dst = loadValue(sp + 8);
+                    const src = loadSlice(sp + 16);
+                    if (
+                        !(
+                            dst instanceof Uint8Array ||
+                            dst instanceof Uint8ClampedArray
+                        )
+                    ) {
+                        this.mem.setUint8(sp + 48, 0);
+                        return;
+                    }
+                    const toCopy = src.subarray(0, dst.length);
+                    dst.set(toCopy);
+                    setInt64(sp + 40, toCopy.length);
+                    this.mem.setUint8(sp + 48, 1);
+                },
+
+                debug: (value: any) => {
                     console.log(value);
                 },
-            },
+            } as any,
         };
-
-        // if (isNodeJS) {
-        // 	if (process.argv.length < 3) {
-        // 		process.stderr.write("usage: go_js_wasm_exec [wasm binary] [arguments]\n");
-        // 		process.exit(1);
-        // 	}
-        //
-        // 	this.argv = process.argv.slice(2);
-        // 	this.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
-        // 	this.exit = process.exit;
-        // 	WebAssembly.instantiate(platform.fs.readFileSync(process.argv[2]), this.importObject).then((result) => {
-        // 		process.on("exit", (code) => { // Node.js exits if no event handler is pending
-        // 			if (code === 0 && !this.exited) {
-        // 				// deadlock, make Go print error and stack traces
-        // 				this._pendingEvent = { id: 0 };
-        // 				this._resume();
-        // 			}
-        // 		});
-        // 		return this.run(result.instance);
-        // 	}).catch((err) => {
-        // 		throw err;
-        // 	});
-        // }
     }
 
-    async run(instance) {
+    public async run(instance: any): Promise<any> {
+        if (!(instance instanceof WebAssembly.Instance)) {
+            throw new Error('Go.run: WebAssembly.Instance expected');
+        }
         this._inst = instance;
+        this.mem = new DataView(this._inst.exports.mem.buffer);
         this._values = [
-            // TODO: garbage collection
+            // JS values that Go currently has references to, indexed by reference id
             NaN,
             0,
             null,
             true,
             false,
-            this.platform,
-            this._inst.exports.mem,
-            this,
+            this.platform, // It represents a global object based on a target platofrm (Browser or Node)
+            this,		             
+            this._inst.exports.mem,		            
         ];
-        this._refs = new Map();
-        this.exited = false;
-
-        const mem = new DataView(this._inst.exports.mem.buffer);
+        this._goRefCounts = new Array(this._values.length).fill(Infinity); // number of references that Go has to a JS value, indexed by reference id
+        // var (
+        //     valueUndefined = Value{ref: 0}
+        //     valueNaN       = predefValue(0, typeFlagNone)
+        //     valueZero      = predefValue(1, typeFlagNone)
+        //     valueNull      = predefValue(2, typeFlagNone)
+        //     valueTrue      = predefValue(3, typeFlagNone)
+        //     valueFalse     = predefValue(4, typeFlagNone)
+        //     valueGlobal    = predefValue(5, typeFlagObject)
+        //     jsGo           = predefValue(6, typeFlagObject) // instance of the Go class in JavaScript
+        
+        //     objectConstructor = valueGlobal.Get("Object")
+        //     arrayConstructor  = valueGlobal.Get("Array")
+        // )
+        // mapping from JS values to reference ids
+        this._values.forEach((val, idx) => {
+            this._ids.set(val, idx);
+        });
+        this._idPool = []; // unused ids that have been garbage collected
+        this.exited = false; // whether the Go program has exited
 
         // Pass command line arguments and environment variables to WebAssembly by writing them to the linear memory.
         let offset = 4096;
 
-        const strPtr = str => {
-            let ptr = offset;
-            new Uint8Array(mem.buffer, offset, str.length + 1).set(
-                this.platform.encoder.encode(str + '\0'),
-            );
-            offset += str.length + (8 - (str.length % 8));
+        const strPtr = (str: string) => {
+            const ptr = offset;
+            const bytes = this.platform.encoder.encode(str + '\0');
+            new Uint8Array(
+                (this.mem.buffer || 0) as any,
+                offset,
+                bytes.length,
+            ).set(bytes);
+            offset += bytes.length;
+            if (offset % 8 !== 0) {
+                offset += 8 - (offset % 8);
+            }
             return ptr;
         };
 
         const argc = this.argv.length;
 
-        const argvPtrs: any[] = [];
-        this.argv.forEach(arg => {
+        const argvPtrs = [];
+        this.argv.forEach((arg) => {
             argvPtrs.push(strPtr(arg));
         });
+        argvPtrs.push(0);
 
         const keys = Object.keys(this.env).sort();
-        argvPtrs.push(keys.length);
-        keys.forEach(key => {
+        keys.forEach((key: string) => {
             argvPtrs.push(strPtr(`${key}=${this.env[key]}`));
         });
+        argvPtrs.push(0);
 
         const argv = offset;
-        argvPtrs.forEach(ptr => {
-            mem.setUint32(offset, ptr, true);
-            mem.setUint32(offset + 4, 0, true);
+        argvPtrs.forEach((ptr) => {
+            this.mem.setUint32(offset, ptr, true);
+            this.mem.setUint32(offset + 4, 0, true);
             offset += 8;
         });
 
-        this._inst.exports.run(argc, argv);
-        if (this.exited) {
+        try {
+            this._inst.exports.run(argc, argv);
+        } catch (err) {
+            console.error(err);
+
+            this.exited = true;
+        }
+        
+        if (this.exited && this._resolveExitPromise) {
             this._resolveExitPromise();
         }
+
         await this._exitPromise;
     }
 
-    _resume() {
+    private _resume() {
         if (this.exited) {
             throw new Error('Go program has already exited');
         }
+
         this._inst.exports.resume();
-        if (this.exited) {
+
+        if (this.exited && this._resolveExitPromise) {
             this._resolveExitPromise();
         }
     }
 
-    _makeFuncWrapper(id: any) {
-        return (...args: any[]) => {
-            const event = { id: id, this: this, args, result: undefined };
-            this._pendingEvent = event;
-            this._resume();
-            return event.result;
-        };
+    // Do not remove, it's called from Go side.
+    _makeFuncWrapper(id: any) {		
+        return (...args: any[]) => {		
+            const event = { id: id, this: this, args, result: undefined };		
+            this._pendingEvent = event;		
+            this._resume();		
+            return event.result;		
+        };		
     }
 }

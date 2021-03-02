@@ -81,6 +81,7 @@ export class Platform {
     public performance: any;
     public encoder: TextEncoder;
     public decoder: TextDecoder;
+    public env: Record<string, string | undefined>;
 
     [key: string]: any;
 
@@ -151,6 +152,7 @@ export class Platform {
         this.undefined = env.undefined;
         this.unescape = env.unescape;
         this.v8debug = env.v8debug;
+        this.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 
         if (isNodeJS) {
             const fs = require('fs');
@@ -184,13 +186,13 @@ export class Platform {
 
             const fetch = require('cross-fetch/dist/node-ponyfill');
             this['fetch'] = (...args: any[]) => {
-                return fetch(...args).then(res => {
+                return fetch(...args).then((res: any) => {
                     const body = res.body;
 
                     body.getReader = () => {
                         const stream = new webStreams.ReadableStream({
-                            start(controller: ReadableByteStreamController) {
-                                res.body.on('data', chunk => {
+                            start(controller: any) {
+                                res.body.on('data', (chunk: any) => {
                                     controller.enqueue(chunk);
                                 });
 
@@ -202,7 +204,7 @@ export class Platform {
                                 //     controller.close();
                                 // });
 
-                                res.body.on('error', err => {
+                                res.body.on('error', (err: Error) => {
                                     controller.error(err);
                                 });
                             },
@@ -220,6 +222,7 @@ export class Platform {
         } else {
             let outputBuf = '';
             const platform = this;
+
             this.fs = {
                 constants: {
                     O_WRONLY: -1,
@@ -229,16 +232,30 @@ export class Platform {
                     O_APPEND: -1,
                     O_EXCL: -1,
                 }, // unused
-                writeSync(fd, buf) {
+                writeSync(
+                    _fd: any,
+                    buf: any,
+                    _offset?: number | null,
+                    _length?: number | null,
+                    _position?: number | null,
+                ): number {
                     outputBuf += platform.decoder.decode(buf);
                     const nl = outputBuf.lastIndexOf('\n');
+
                     if (nl != -1) {
                         console.log(outputBuf.substr(0, nl));
                         outputBuf = outputBuf.substr(nl + 1);
                     }
                     return buf.length;
                 },
-                write(fd, buf, offset, length, position, callback) {
+                write(
+                    fd: any,
+                    buf: any,
+                    offset: any,
+                    length: any,
+                    position: any,
+                    callback: any,
+                ) {
                     if (
                         offset !== 0 ||
                         length !== buf.length ||
@@ -249,17 +266,24 @@ export class Platform {
                     const n = this.writeSync(fd, buf);
                     callback(null, n);
                 },
-                open(path, flags, mode, callback) {
+                open(_path: any, _flags: any, _mode: any, callback: any): void {
                     const err = new Error('not implemented');
                     (err as any).code = 'ENOSYS';
                     callback(err);
                 },
-                read(fd, buffer, offset, length, position, callback) {
+                read(
+                    _fd: any,
+                    _buffer: any,
+                    _offset: any,
+                    _length: any,
+                    _position: any,
+                    callback: any,
+                ): void {
                     const err = new Error('not implemented');
                     (err as any).code = 'ENOSYS';
                     callback(err);
                 },
-                fsync(fd, callback) {
+                fsync(_fd: any, callback: any) {
                     callback(null);
                 },
             };
@@ -272,7 +296,7 @@ export class Platform {
             let obj = window;
 
             do
-                Object.getOwnPropertyNames(obj).forEach(key => {
+                Object.getOwnPropertyNames(obj).forEach((key: string) => {
                     // skip already defined keys
                     if (this[key] != null) {
                         return;
@@ -285,7 +309,7 @@ export class Platform {
                         return;
                     }
 
-                    if (key[0].toLowerCase() === key[0]) {
+                    if (key[0]?.toLowerCase() === key[0]) {
                         if (typeof value === 'function') {
                             value = (value as Function).bind(env);
                         }

@@ -8,7 +8,7 @@ import (
 	"syscall/js"
 )
 
-const namespace = "ferret"
+const namespace = "$ferret"
 
 var (
 	version       = "undefined"
