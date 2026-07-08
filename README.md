@@ -100,15 +100,15 @@ try {
 
 Parameters, return values, and JavaScript function values support JSON-compatible data plus `Uint8Array`.
 
-| JavaScript value | Ferret value |
-| --- | --- |
-| `undefined` / `null` | `NONE` |
-| `boolean` | Boolean |
-| `string` | String |
-| finite `number` | Number |
-| `Array` | Array |
-| plain object | Object |
-| `Uint8Array` | Binary |
+| JavaScript value     | Ferret value |
+| -------------------- | ------------ |
+| `undefined` / `null` | `NONE`       |
+| `boolean`            | Boolean      |
+| `string`             | String       |
+| finite `number`      | Number       |
+| `Array`              | Array        |
+| plain object         | Object       |
+| `Uint8Array`         | Binary       |
 
 Unsupported values fail explicitly. This includes cyclic objects, non-finite numbers, class instances, functions as values, and other non-plain JavaScript objects.
 
@@ -159,14 +159,14 @@ The full Ferret v2 standard library is registered. In browsers, HTTP calls use t
 
 ## Migrating from v1
 
-| v1 | v2 |
-| --- | --- |
-| `compiler.exec(query, params)` | `engine.run(query, { params })` |
-| `compiler.compile(query)` | `engine.compile(query)` |
-| `program.run(params)` | `plan.run({ params })` |
-| `program.destroy()` | `await plan.close()` |
-| `compiler.register(name, fn)` | `create({ functions: { [name]: fn } })` |
-| `compiler.version()` | `engine.version` |
+| v1                             | v2                                      |
+| ------------------------------ | --------------------------------------- |
+| `compiler.exec(query, params)` | `engine.run(query, { params })`         |
+| `compiler.compile(query)`      | `engine.compile(query)`                 |
+| `program.run(params)`          | `plan.run({ params })`                  |
+| `program.destroy()`            | `await plan.close()`                    |
+| `compiler.register(name, fn)`  | `create({ functions: { [name]: fn } })` |
+| `compiler.version()`           | `engine.version`                        |
 
 There is no v1 compatibility facade.
 
