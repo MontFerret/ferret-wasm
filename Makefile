@@ -1,33 +1,39 @@
-export GOPATH
-export GO111MODULE=on
-export GOOS=js
-export GOARCH=wasm
-export NODE_ENV=production
+PACKAGE_VERSION := $(shell node -p "require('./package.json').version")
+FERRET_VERSION := v2.0.0-alpha.30
+DIST := ./dist
+GO_CACHE ?= /tmp/ferret-wasm-go-cache
 
-PACKAGE_VERSION?=$(shell node -pe "require('./package.json').version")
-FERRET_VERSION=0.8.2
-DIR_BIN=./dist
-NODE_BIN=./node_modules/.bin
-GO_ROOT=$(go env GOROOT)
+.PHONY: build clean fmt install js test test-browser test-go wasm
 
-default: build
+build: clean js wasm
 
-build: install compile test
+clean:
+	node -e "require('node:fs').rmSync('dist', { recursive: true, force: true })"
 
 install:
-	go mod vendor && go mod tidy
+	go mod download
+	npm ci
 
-compile:
-	rm -rf ${DIR_BIN} && \
-	go build -v -o ${DIR_BIN}/ferret.wasm -ldflags "-X main.version=${PACKAGE_VERSION} -X main.ferretVersion=${FERRET_VERSION}" main.go && \
-	${NODE_BIN}/tsc -b ./tsconfig.json
+js:
+	npm run build:js
 
-test:
-	${NODE_BIN}/mocha
+wasm:
+	mkdir -p $(DIST)
+	GOCACHE=$(GO_CACHE) GOOS=js GOARCH=wasm go build -trimpath \
+		-ldflags "-s -w -X main.version=$(PACKAGE_VERSION) -X main.ferretVersion=$(FERRET_VERSION)" \
+		-o $(DIST)/ferret.wasm .
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" $(DIST)/wasm_exec.js
+
+test: build
+	npm test
+
+test-browser: build
+	npm run test:browser
+
+test-go:
+	GOCACHE=$(GO_CACHE) GOOS=js GOARCH=wasm go test \
+		-exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./...
 
 fmt:
-	go fmt ./ferret/... && \
-	${NODE_BIN}/pretty-quick
-
-publish:
-	npm publish --access=public
+	gofmt -w main.go ferret
+	npm run format

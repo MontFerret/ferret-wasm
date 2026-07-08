@@ -1,90 +1,40 @@
-// +build js,wasm
+//go:build js && wasm
 
 package main
 
 import (
-	"github.com/MontFerret/ferret-wasm/ferret"
-	"github.com/pkg/errors"
+	"os"
 	"syscall/js"
-)
 
-const namespace = "ferret"
+	wasm "github.com/MontFerret/ferret-wasm/ferret"
+)
 
 var (
 	version       = "undefined"
 	ferretVersion = "undefined"
 )
 
-func notify(callback js.Value, res *ferret.Result) {
-	if res.Ok() {
-		callback.Invoke(js.Undefined(), res.Data())
-	} else {
-		callback.Invoke(res.Error(), js.Undefined())
-	}
-}
-
 func main() {
-	c := make(chan struct{}, 0)
+	token := os.Getenv("FERRET_WASM_INSTANCE_ID")
+	if token == "" {
+		panic("FERRET_WASM_INSTANCE_ID is required")
+	}
 
-	f := ferret.New(ferret.Version{version, ferretVersion})
+	done := make(chan struct{})
+	bridge := wasm.NewBridge(wasm.Version{
+		WASM:   version,
+		Ferret: ferretVersion,
+	}, func() {
+		close(done)
+	})
 
-	js.Global().Set(namespace, make(map[string]interface{}))
+	global := js.Global()
+	bridges := global.Get("__ferretWasmBridges")
+	if bridges.Type() != js.TypeObject {
+		bridges = global.Get("Object").Call("create", js.Null())
+		global.Set("__ferretWasmBridges", bridges)
+	}
+	bridges.Set(token, bridge.JSValue())
 
-	module := js.Global().Get(namespace)
-	module.Set("version", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return js.ValueOf(f.Version())
-	}))
-	module.Set("compile", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 1 {
-			return ferret.Error(errors.New("Missed query"))
-		}
-
-		return f.Compile(args[0])
-	}))
-	module.Set("destroy", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 1 {
-			return ferret.Error(errors.New("Missed query"))
-		}
-
-		return f.Destroy(args[0])
-	}))
-	module.Set("run", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 3 {
-			return ferret.Error(errors.New("Missed arguments"))
-		}
-
-		id := args[0]
-		params := args[1]
-		callback := args[2]
-
-		go func() {
-			notify(callback, f.Run(id, params))
-		}()
-
-		return ferret.OkEmpty()
-	}))
-	module.Set("exec", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 3 {
-			return ferret.Error(errors.New("Missed arguments"))
-		}
-
-		query := args[0]
-		params := args[1]
-		callback := args[2]
-
-		go func() {
-			notify(callback, f.Execute(query, params))
-		}()
-
-		return ferret.OkEmpty()
-	}))
-	module.Set("register", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 2 {
-			return ferret.Error(errors.New("Missed arguments"))
-		}
-
-		return f.Register(args[0], args[1])
-	}))
-
-	<-c
+	<-done
 }

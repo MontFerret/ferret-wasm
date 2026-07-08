@@ -1,73 +1,42 @@
+//go:build js && wasm
+
 package ferret
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"syscall/js"
 )
 
-type Result struct {
-	data    interface{}
-	err     error
-	hasData bool
+const abortCode = "ABORTED"
+
+func ok(data any) any {
+	out := map[string]any{"ok": true}
+	if data != nil {
+		out["data"] = data
+	}
+	return out
 }
 
-func OkEmpty() *Result {
-	return &Result{}
-}
-
-func OkInterface(data interface{}) *Result {
-	return &Result{data, nil, true}
-}
-
-func Ok(data []byte) *Result {
-	var values interface{}
-
-	err := json.Unmarshal(data, &values)
-
+func failure(err error) any {
 	if err == nil {
-		return &Result{values, nil, true}
+		err = errors.New("unexpected error")
 	}
 
-	return &Result{nil, err, false}
-}
-
-func Error(err error) *Result {
-	return &Result{nil, err, false}
-}
-
-func (r *Result) Ok() bool {
-	return r.err == nil
-}
-
-func (r *Result) Error() js.Value {
-	if r.err != nil {
-		return js.ValueOf(r.err.Error())
+	code := ""
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		code = abortCode
 	}
 
-	return js.Undefined()
+	return map[string]any{
+		"ok": false,
+		"error": map[string]any{
+			"message": err.Error(),
+			"code":    code,
+		},
+	}
 }
 
-func (r *Result) Data() js.Value {
-	if r.hasData {
-		return js.ValueOf(r.data)
-	}
-
-	return js.Undefined()
-}
-
-func (r *Result) JSValue() js.Value {
-	obj := make(map[string]interface{})
-
-	if r.hasData {
-		obj["data"] = r.data
-	}
-
-	if r.err != nil {
-		obj["error"] = r.err.Error()
-		obj["ok"] = false
-	} else {
-		obj["ok"] = true
-	}
-
-	return js.ValueOf(obj)
+func invoke(callback js.Value, result any) {
+	callback.Invoke(js.ValueOf(result))
 }

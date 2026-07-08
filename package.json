@@ -1,14 +1,42 @@
 {
     "name": "@montferret/ferret-wasm",
-    "version": "1.0.0",
-    "description": "Ferret compiler and runtime ported to WASM",
-    "main": "dist/index.js",
+    "version": "2.0.0-alpha.30",
+    "description": "Ferret v2 compiler and runtime for WebAssembly",
+    "type": "module",
+    "main": "./dist/index.node.cjs",
+    "module": "./dist/index.node.js",
+    "types": "./dist/index.node.d.ts",
+    "exports": {
+        ".": {
+            "browser": {
+                "types": "./dist/index.d.ts",
+                "import": "./dist/index.js",
+                "default": "./dist/index.js"
+            },
+            "types": "./dist/index.node.d.ts",
+            "import": "./dist/index.node.js",
+            "require": "./dist/index.node.cjs"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+    ],
     "scripts": {
-        "compile": "tsc -b ./tsconfig.json",
-        "build": "make compile",
-        "test": "mocha",
-        "prepublish": "npm run build && npm run test",
-        "fmt": "pretty-quick"
+        "build": "make build",
+        "build:js": "tsup",
+        "build:wasm": "make wasm",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "test:browser": "playwright test",
+        "test:go": "make test-go",
+        "check": "npm run typecheck && npm run format:check && npm run test && npm run test:go",
+        "format": "prettier --write \"js/**/*.ts\" \"test/**/*.{ts,mjs}\" \"*.{ts,json,md,yml}\" \".github/**/*.yml\" && gofmt -w main.go ferret",
+        "format:check": "prettier --check \"js/**/*.ts\" \"test/**/*.{ts,mjs}\" \"*.{ts,json,md,yml}\" \".github/**/*.yml\"",
+        "pack:check": "npm pack --dry-run --cache .cache/npm",
+        "prepublishOnly": "npm run build && npm run check && npm run pack:check"
     },
     "repository": {
         "type": "git",
@@ -16,37 +44,28 @@
     },
     "keywords": [
         "ferret",
+        "fql",
         "runtime",
         "compiler",
         "wasm",
+        "webassembly",
         "browser"
     ],
     "author": "MontFerret Team",
-    "license": "MIT",
+    "license": "Apache-2.0",
     "bugs": {
         "url": "https://github.com/MontFerret/ferret-wasm/issues"
     },
     "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
-    "dependencies": {
-        "cross-fetch": "^3.0.4",
-        "web-streams-polyfill": "^2.0.4"
+    "engines": {
+        "node": ">=22"
     },
     "devDependencies": {
-        "@types/chai": "^4.1.7",
-        "@types/mocha": "^5.2.7",
-        "@types/node": "^12.7.0",
-        "@types/sinon": "^7.0.13",
-        "chai": "^4.2.0",
-        "husky": "^3.0.2",
-        "mocha": "^6.2.0",
-        "prettier": "^1.18.2",
-        "pretty-quick": "^1.11.1",
-        "sinon": "^7.4.1",
-        "source-map-support": "^0.5.13",
-        "ts-node": "^8.3.0",
-        "tslint": "^5.18.0",
-        "tslint-config-airbnb": "^5.11.1",
-        "tslint-config-prettier": "^1.18.0",
-        "typescript": "^3.5.3"
+        "@playwright/test": "^1.55.0",
+        "@types/node": "^24.0.0",
+        "prettier": "^3.6.0",
+        "tsup": "^8.5.0",
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0"
     }
 }

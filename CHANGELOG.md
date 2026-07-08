@@ -1,9 +1,37 @@
+# Changelog
+
+## 2.0.0-alpha.30
+
+### Changed
+
+- Migrated the compiler and runtime to Ferret v2.0.0-alpha.30.
+- Replaced the v1 JavaScript API with explicit `Engine`, `Plan`, and `Session`
+  lifecycles.
+- Replaced the Go 1.12 runtime fork with the official runtime matching the
+  build toolchain.
+- Added ESM, CommonJS, Node.js, and browser package exports.
+- Updated the build and test stack to TypeScript 5, tsup, Vitest, Playwright,
+  and GitHub Actions.
+
+### Added
+
+- Immutable synchronous and asynchronous JavaScript host functions.
+- AbortSignal cancellation.
+- Named sources, plan parameter metadata, custom WASM sources, and deterministic
+  cascading cleanup.
+- Node.js and Chromium integration coverage.
+
+### Removed
+
+- Ferret v1, mutable function registration, `exec`, `destroy`, the custom
+  `wasm_exec.ts` implementation, legacy polyfills, TSLint, Husky, and Travis CI.
+
 ## 1.0.0
 
 ### Changed
 
--   Upgraded Ferret to v0.8.2
+- Upgraded Ferret to v0.8.2.
 
 ### Added
 
--   Added `compiler.destroy` method to clean up cached programs.
+- Added `compiler.destroy` to clean up cached programs.

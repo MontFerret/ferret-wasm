@@ -1,0 +1,67 @@
+import type { RuntimeFunction, Version } from './types';
+
+export interface BridgeError {
+    message: string;
+    code?: string;
+}
+
+export interface BridgeResult<T = undefined> {
+    ok: boolean;
+    data?: T;
+    error?: BridgeError;
+}
+
+export interface CompileResult {
+    id: string;
+    params: string[];
+}
+
+export interface GoBridge {
+    initialize(
+        functions: Record<string, RuntimeFunction>,
+    ): BridgeResult<undefined>;
+    version(): BridgeResult<Version>;
+    compile(name: string, text: string): BridgeResult<CompileResult>;
+    createSession(
+        planId: string,
+        params?: Record<string, unknown>,
+    ): BridgeResult<string>;
+    runSession(
+        sessionId: string,
+        signal: AbortSignal | undefined,
+        callback: (result: BridgeResult<string>) => void,
+    ): BridgeResult<undefined>;
+    closeSession(sessionId: string): BridgeResult<undefined>;
+    closePlan(planId: string): BridgeResult<undefined>;
+    closeEngine(): BridgeResult<undefined>;
+    shutdown(): BridgeResult<undefined>;
+}
+
+export interface GoRuntime {
+    env: Record<string, string>;
+    importObject: WebAssembly.Imports;
+    run(instance: WebAssembly.Instance): Promise<void>;
+}
+
+export interface GoRuntimeConstructor {
+    new (): GoRuntime;
+}
+
+export interface FerretGlobals {
+    Go?: GoRuntimeConstructor;
+    __ferretWasmBridges?: Record<string, GoBridge>;
+    fs?: unknown;
+    path?: unknown;
+}
+
+export function unwrap<T>(result: BridgeResult<T>): T {
+    if (result?.ok) {
+        return result.data as T;
+    }
+
+    const error = new Error(result?.error?.message ?? 'Unexpected WASM error');
+    if (result?.error?.code === 'ABORTED') {
+        error.name = 'AbortError';
+    }
+    throw error;
+}

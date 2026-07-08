@@ -17,3 +17,5 @@ vendor
 node_modules
 .cache
 *.log
+playwright-report
+test-results

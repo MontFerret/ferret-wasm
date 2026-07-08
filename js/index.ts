@@ -1,40 +1,47 @@
-import isNodeJS from './is-node';
-import { Go } from './wasm_exec';
-import { Engine } from './engine';
+import { createWithPlatform, type Platform } from './factory';
+import type { CreateOptions } from './types';
 
-declare var WebAssembly: any;
+const moduleURL = import.meta.url;
+const platform: Platform = {
+    defaultWasm: new URL('./ferret.wasm', moduleURL),
+    async prepare(runtime): Promise<void> {
+        await import(/* @vite-ignore */ runtime.href);
+    },
+    async load(source): Promise<BufferSource | WebAssembly.Module> {
+        if (source instanceof WebAssembly.Module) {
+            return source;
+        }
+        if (source instanceof ArrayBuffer || source instanceof Uint8Array) {
+            return source;
+        }
+        const response = await fetch(source);
+        if (!response.ok) {
+            throw new Error(
+                `Failed to load WASM: ${response.status} ${response.statusText}`,
+            );
+        }
+        return response.arrayBuffer();
+    },
+};
 
-const MODULE_PATH = 'ferret.wasm';
-
-export const isNode = isNodeJS;
-
-export async function create(module?: string): Promise<Engine> {
-    let file;
-
-    if (!isNodeJS) {
-        const resp = await fetch(module || MODULE_PATH);
-        file = await resp.arrayBuffer();
-    } else {
-        const fs = require('fs');
-        const path = require('path');
-
-        file = await new Promise((resolve, reject) => {
-            const targetModule = module || path.resolve(__dirname, MODULE_PATH);
-
-            fs.readFile(targetModule, (err, buffer) => {
-                if (err != null) {
-                    return reject(err);
-                }
-
-                return resolve(buffer);
-            });
-        });
-    }
-
-    const go = new Go();
-    const asm = await WebAssembly.instantiate(file, go.importObject);
-
-    go.run(asm.instance);
-
-    return new Engine(go);
+export function create(options?: CreateOptions) {
+    return createWithPlatform(
+        platform,
+        new URL('./wasm_exec.js', moduleURL),
+        options,
+    );
 }
+
+export type {
+    CreateOptions,
+    Engine,
+    ExecutionOptions,
+    Params,
+    Plan,
+    RuntimeFunction,
+    Session,
+    SessionOptions,
+    SessionRunOptions,
+    SourceInput,
+    Version,
+} from './types';
