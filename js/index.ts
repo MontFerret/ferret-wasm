@@ -37,6 +37,7 @@ export function create(options?: CreateOptions) {
 }
 
 export type {
+    CompileOptions,
     CreateOptions,
     Engine,
     ExecutionOptions,

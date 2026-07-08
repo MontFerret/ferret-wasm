@@ -1,6 +1,7 @@
-import type { BridgeResult, GoBridge } from './bridge';
+import type { BridgeResult, CompileResult, GoBridge } from './bridge';
 import { unwrap } from './bridge';
 import type {
+    CompileOptions,
     Engine,
     ExecutionOptions,
     Params,
@@ -11,6 +12,28 @@ import type {
     SourceInput,
     Version,
 } from './types';
+
+function callBridge<T>(
+    start: (
+        callback: (result: BridgeResult<T>) => void,
+    ) => BridgeResult<undefined>,
+): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const callback = (result: BridgeResult<T>): void => {
+            try {
+                resolve(unwrap(result));
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        try {
+            unwrap(start(callback));
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
 
 function normalizeSource(source: SourceInput): { name: string; text: string } {
     if (typeof source === 'string') {
@@ -77,7 +100,6 @@ export class SessionImpl implements Session {
         return this.#running;
     }
 
-    /** @internal */
     get closed(): boolean {
         return this.#closed;
     }
@@ -102,28 +124,10 @@ export class SessionImpl implements Session {
         this.#running = true;
 
         try {
-            return await new Promise<T>((resolve, reject) => {
-                const callback = (result: BridgeResult<string>): void => {
-                    try {
-                        const json = unwrap(result);
-                        resolve(JSON.parse(json) as T);
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-
-                try {
-                    unwrap(
-                        this.#bridge.runSession(
-                            this.#id,
-                            options.signal,
-                            callback,
-                        ),
-                    );
-                } catch (error) {
-                    reject(error);
-                }
-            });
+            const json = await callBridge<string>((callback) =>
+                this.#bridge.runSession(this.#id, options.signal, callback),
+            );
+            return JSON.parse(json) as T;
         } finally {
             this.#running = false;
         }
@@ -152,6 +156,7 @@ export class PlanImpl implements Plan {
     readonly #sessions = new Set<SessionImpl>();
     readonly params: readonly string[];
     #closed = false;
+    #pendingSessionCreations = 0;
 
     /** @internal */
     constructor(
@@ -178,24 +183,51 @@ export class PlanImpl implements Plan {
     }
 
     /** @internal */
+    get hasPendingSessionCreation(): boolean {
+        return this.#pendingSessionCreations > 0;
+    }
+
+    get closed(): boolean {
+        return this.#closed;
+    }
+
+    /** @internal */
     removeSession(session: SessionImpl): void {
         this.#sessions.delete(session);
     }
 
-    createSession(options: SessionOptions = {}): SessionImpl {
+    async createSession(options: SessionOptions = {}): Promise<SessionImpl> {
         if (this.#closed) {
             throw new Error('Plan is closed');
         }
 
-        if (options == null || !isParams(options.params)) {
+        if (
+            options == null ||
+            typeof options !== 'object' ||
+            !isParams(options.params)
+        ) {
             throw new TypeError('params must be a plain JavaScript object');
         }
 
-        const id = unwrap(this.#bridge.createSession(this.#id, options.params));
-        const session = new SessionImpl(this.#bridge, id, this);
-        this.#sessions.add(session);
+        validateSignal(options.signal);
+        this.#pendingSessionCreations++;
 
-        return session;
+        try {
+            const id = await callBridge<string>((callback) =>
+                this.#bridge.createSession(
+                    this.#id,
+                    options.params,
+                    options.signal,
+                    callback,
+                ),
+            );
+            const session = new SessionImpl(this.#bridge, id, this);
+            this.#sessions.add(session);
+
+            return session;
+        } finally {
+            this.#pendingSessionCreations--;
+        }
     }
 
     async run<T = unknown>(options: ExecutionOptions = {}): Promise<T> {
@@ -203,7 +235,10 @@ export class PlanImpl implements Plan {
             throw new TypeError('params must be a plain JavaScript object');
         }
 
-        const session = this.createSession({ params: options.params });
+        const session = await this.createSession({
+            params: options.params,
+            signal: options.signal,
+        });
 
         return runWithCleanup(
             () => session.run<T>({ signal: options.signal }),
@@ -214,6 +249,10 @@ export class PlanImpl implements Plan {
     async close(): Promise<void> {
         if (this.#closed) {
             return;
+        }
+
+        if (this.hasPendingSessionCreation) {
+            throw new Error('Cannot close a plan while creating a session');
         }
 
         if (this.hasRunningSession) {
@@ -237,6 +276,7 @@ export class EngineImpl implements Engine {
     readonly #plans = new Set<PlanImpl>();
     readonly version: Readonly<Version>;
     #closed = false;
+    #pendingCompilations = 0;
 
     /** @internal */
     constructor(
@@ -254,27 +294,56 @@ export class EngineImpl implements Engine {
         this.#plans.delete(plan);
     }
 
-    compile(source: SourceInput): PlanImpl {
+    get closed(): boolean {
+        return this.#closed;
+    }
+
+    async compile(
+        source: SourceInput,
+        options: CompileOptions = {},
+    ): Promise<PlanImpl> {
         if (this.#closed) {
             throw new Error('Engine is closed');
         }
 
+        if (options == null || typeof options !== 'object') {
+            throw new TypeError('options must be an object');
+        }
+
+        validateSignal(options.signal);
         const normalized = normalizeSource(source);
-        const result = unwrap(
-            this.#bridge.compile(normalized.name, normalized.text),
-        );
+        this.#pendingCompilations++;
 
-        const plan = new PlanImpl(this.#bridge, result.id, result.params, this);
-        this.#plans.add(plan);
+        try {
+            const result = await callBridge<CompileResult>((callback) =>
+                this.#bridge.compile(
+                    normalized.name,
+                    normalized.text,
+                    options.signal,
+                    callback,
+                ),
+            );
+            const plan = new PlanImpl(
+                this.#bridge,
+                result.id,
+                result.params,
+                this,
+            );
+            this.#plans.add(plan);
 
-        return plan;
+            return plan;
+        } finally {
+            this.#pendingCompilations--;
+        }
     }
 
     async run<T = unknown>(
         source: SourceInput,
         options: ExecutionOptions = {},
     ): Promise<T> {
-        const plan = this.compile(source);
+        const plan = await this.compile(source, {
+            signal: options.signal,
+        });
         return runWithCleanup(
             () => plan.run<T>(options),
             () => plan.close(),
@@ -286,7 +355,17 @@ export class EngineImpl implements Engine {
             return;
         }
 
+        if (this.#pendingCompilations > 0) {
+            throw new Error('Cannot close an engine while compiling a plan');
+        }
+
         for (const plan of this.#plans) {
+            if (plan.hasPendingSessionCreation) {
+                throw new Error(
+                    'Cannot close an engine while creating a session',
+                );
+            }
+
             if (plan.hasRunningSession) {
                 throw new Error(
                     'Cannot close an engine with a running session',
@@ -300,6 +379,11 @@ export class EngineImpl implements Engine {
 
         unwrap(this.#bridge.closeEngine());
         this.#closed = true;
+
+        // Go schedules WASM goroutine callbacks with timers. Allow callbacks
+        // from completed resource operations to drain before exiting runtime.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
         unwrap(this.#bridge.shutdown());
         await this.#runtimeDone;
     }
@@ -317,4 +401,15 @@ function isParams(value: Params | undefined): boolean {
     const prototype = Object.getPrototypeOf(value);
 
     return prototype === Object.prototype || prototype === null;
+}
+
+function validateSignal(signal: AbortSignal | undefined): void {
+    if (
+        signal != null &&
+        (typeof signal !== 'object' ||
+            typeof signal.addEventListener !== 'function' ||
+            typeof signal.removeEventListener !== 'function')
+    ) {
+        throw new TypeError('signal must be an AbortSignal');
+    }
 }

@@ -70,6 +70,7 @@ function isRemote(value: string): boolean {
 }
 
 export type {
+    CompileOptions,
     CreateOptions,
     Engine,
     ExecutionOptions,

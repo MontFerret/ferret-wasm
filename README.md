@@ -57,12 +57,12 @@ For one-off execution, use `engine.run()`. For repeated execution, compile once 
 
 ```javascript
 const engine = await create();
-const plan = engine.compile(`RETURN @factor * 2`);
+const plan = await engine.compile(`RETURN @factor * 2`);
 
 console.log(plan.params); // ['factor']
 console.log(await plan.run({ params: { factor: 3 } })); // 6
 
-const session = plan.createSession({ params: { factor: 4 } });
+const session = await plan.createSession({ params: { factor: 4 } });
 
 try {
     console.log(await session.run()); // 8
@@ -74,7 +74,7 @@ try {
 }
 ```
 
-Sessions are reusable, but they do not support concurrent runs. Closing an engine closes its idle child plans and sessions. Closing a plan closes its idle child sessions. If a child session is currently running, `close()` rejects without closing anything. Every `close()` method is idempotent.
+Compiling a plan and creating a session are asynchronous. Sessions are reusable, but they do not support concurrent runs. Closing an engine closes its idle child plans and sessions. Closing a plan closes its idle child sessions. If resource creation is pending or a child session is currently running, `close()` rejects without closing anything. Every `close()` method is idempotent.
 
 ## Register JavaScript functions
 
@@ -116,7 +116,7 @@ Binary values returned from Ferret are JSON-decoded according to Ferret's serial
 
 ## Cancellation
 
-Pass an `AbortSignal` to `engine.run()`, `plan.run()`, or `session.run()`:
+Pass an `AbortSignal` to `engine.compile()`, `engine.run()`, `plan.createSession()`, `plan.run()`, or `session.run()`:
 
 ```javascript
 const controller = new AbortController();
@@ -134,6 +134,21 @@ try {
 ```
 
 Ferret execution and HTTP calls observe cancellation. JavaScript promises returned by registered functions cannot be forcibly cancelled; the runtime remains alive until the promise settles, then reports the run as aborted.
+
+Compilation and session creation also reject with `AbortError` when cancelled:
+
+```javascript
+const controller = new AbortController();
+controller.abort();
+
+try {
+    await engine.compile(`RETURN TRUE`, {
+        signal: controller.signal,
+    });
+} catch (error) {
+    console.log(error.name); // AbortError
+}
+```
 
 ## Browser loading
 
@@ -162,7 +177,7 @@ The full Ferret v2 standard library is registered. In browsers, HTTP calls use t
 | v1                             | v2                                      |
 | ------------------------------ | --------------------------------------- |
 | `compiler.exec(query, params)` | `engine.run(query, { params })`         |
-| `compiler.compile(query)`      | `engine.compile(query)`                 |
+| `compiler.compile(query)`      | `await engine.compile(query)`           |
 | `program.run(params)`          | `plan.run({ params })`                  |
 | `program.destroy()`            | `await plan.close()`                    |
 | `compiler.register(name, fn)`  | `create({ functions: { [name]: fn } })` |

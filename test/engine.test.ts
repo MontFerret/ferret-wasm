@@ -24,18 +24,31 @@ describe('Ferret WASM v2', () => {
 
     it('compiles plans, exposes params, and reuses explicit sessions', async () => {
         const engine = await create();
-        const plan = engine.compile('RETURN @factor * 2');
+        expect(engine.closed).toBe(false);
+
+        const planPromise = engine.compile('RETURN @factor * 2');
+        expect(planPromise).toBeInstanceOf(Promise);
+        const plan = await planPromise;
+        expect(plan.closed).toBe(false);
         expect(plan.params).toEqual(['factor']);
 
         await expect(plan.run({ params: { factor: 3 } })).resolves.toBe(6);
 
-        const session = plan.createSession({ params: { factor: 4 } });
+        const sessionPromise = plan.createSession({
+            params: { factor: 4 },
+        });
+        expect(sessionPromise).toBeInstanceOf(Promise);
+        const session = await sessionPromise;
+        expect(session.closed).toBe(false);
         await expect(session.run()).resolves.toBe(8);
         await expect(session.run()).resolves.toBe(8);
 
         await session.close();
+        expect(session.closed).toBe(true);
         await plan.close();
+        expect(plan.closed).toBe(true);
         await engine.close();
+        expect(engine.closed).toBe(true);
         await engine.close();
         await expect(session.run()).rejects.toThrow('Session is closed');
     });
@@ -91,8 +104,8 @@ describe('Ferret WASM v2', () => {
                     ),
             },
         });
-        const plan = engine.compile('RETURN SLOW()');
-        const session = plan.createSession();
+        const plan = await engine.compile('RETURN SLOW()');
+        const session = await plan.createSession();
         const controller = new AbortController();
         const running = session.run({ signal: controller.signal });
 
@@ -140,14 +153,19 @@ describe('Ferret WASM v2', () => {
 
     it('cascades close through idle plans and sessions', async () => {
         const engine = await create();
-        const plan = engine.compile('RETURN TRUE');
-        const session = plan.createSession();
+        const plan = await engine.compile('RETURN TRUE');
+        const session = await plan.createSession();
 
         await engine.close();
 
+        expect(engine.closed).toBe(true);
+        expect(plan.closed).toBe(true);
+        expect(session.closed).toBe(true);
         await expect(session.run()).rejects.toThrow('Session is closed');
         await expect(plan.run()).rejects.toThrow('Plan is closed');
-        expect(() => engine.compile('RETURN TRUE')).toThrow('Engine is closed');
+        await expect(engine.compile('RETURN TRUE')).rejects.toThrow(
+            'Engine is closed',
+        );
     });
 
     it('loads through the CommonJS export', async () => {
@@ -180,11 +198,74 @@ describe('Ferret WASM v2', () => {
     it('surfaces source-aware compile errors', async () => {
         const engine = await create();
         try {
-            expect(() =>
+            await expect(
                 engine.compile({ name: 'broken.fql', text: 'RETURN (' }),
-            ).toThrow(/compile query/i);
+            ).rejects.toThrow(/compile query/i);
         } finally {
             await engine.close();
         }
+    });
+
+    it('rejects cancelled resource creation and invalid session params', async () => {
+        const engine = await create();
+
+        try {
+            const compileController = new AbortController();
+            compileController.abort();
+            await expect(
+                engine.compile('RETURN TRUE', {
+                    signal: compileController.signal,
+                }),
+            ).rejects.toMatchObject({ name: 'AbortError' });
+
+            const plan = await engine.compile('RETURN @value');
+            try {
+                const sessionController = new AbortController();
+                sessionController.abort();
+                await expect(
+                    plan.createSession({
+                        signal: sessionController.signal,
+                    }),
+                ).rejects.toMatchObject({ name: 'AbortError' });
+
+                const cyclic: Record<string, unknown> = {};
+                cyclic.self = cyclic;
+                await expect(
+                    plan.createSession({
+                        params: { value: cyclic },
+                    }),
+                ).rejects.toThrow('cyclic JavaScript value');
+            } finally {
+                await plan.close();
+            }
+        } finally {
+            await engine.close();
+        }
+    });
+
+    it('rejects close without partial cleanup while creation is pending', async () => {
+        const engine = await create();
+        const planPromise = engine.compile('RETURN TRUE');
+
+        await expect(engine.close()).rejects.toThrow('compiling a plan');
+
+        const plan = await planPromise;
+        const idlePlan = await engine.compile('RETURN 1');
+        const sessionPromise = plan.createSession();
+        const planClose = plan.close();
+        const engineClose = engine.close();
+
+        await expect(planClose).rejects.toThrow('creating a session');
+        await expect(engineClose).rejects.toThrow('creating a session');
+        expect(plan.closed).toBe(false);
+        expect(idlePlan.closed).toBe(false);
+
+        const session = await sessionPromise;
+        await session.close();
+        await engine.close();
+
+        expect(plan.closed).toBe(true);
+        expect(idlePlan.closed).toBe(true);
+        expect(engine.closed).toBe(true);
     });
 });

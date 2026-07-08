@@ -21,11 +21,18 @@ export interface GoBridge {
         functions: Record<string, RuntimeFunction>,
     ): BridgeResult<undefined>;
     version(): BridgeResult<Version>;
-    compile(name: string, text: string): BridgeResult<CompileResult>;
+    compile(
+        name: string,
+        text: string,
+        signal: AbortSignal | undefined,
+        callback: (result: BridgeResult<CompileResult>) => void,
+    ): BridgeResult<undefined>;
     createSession(
         planId: string,
-        params?: Record<string, unknown>,
-    ): BridgeResult<string>;
+        params: Record<string, unknown> | undefined,
+        signal: AbortSignal | undefined,
+        callback: (result: BridgeResult<string>) => void,
+    ): BridgeResult<undefined>;
     runSession(
         sessionId: string,
         signal: AbortSignal | undefined,

@@ -18,9 +18,10 @@ import (
 
 type (
 	planHandle struct {
-		plan     *core.Plan
-		sessions map[string]*sessionHandle
-		closed   bool
+		plan                    *core.Plan
+		sessions                map[string]*sessionHandle
+		pendingSessionCreations int
+		closed                  bool
 	}
 
 	sessionHandle struct {
@@ -31,15 +32,16 @@ type (
 	}
 
 	Bridge struct {
-		mu       sync.Mutex
-		engine   *core.Engine
-		plans    map[string]*planHandle
-		sessions map[string]*sessionHandle
-		methods  []js.Func
-		version  Version
-		nextID   atomic.Uint64
-		shutdown func()
-		closed   bool
+		mu        sync.Mutex
+		engine    *core.Engine
+		plans     map[string]*planHandle
+		sessions  map[string]*sessionHandle
+		methods   []js.Func
+		version   Version
+		nextID    atomic.Uint64
+		shutdown  func()
+		closed    bool
+		compiling int
 	}
 )
 
@@ -167,8 +169,17 @@ func (b *Bridge) getVersion(_ js.Value, _ []js.Value) any {
 }
 
 func (b *Bridge) compile(_ js.Value, args []js.Value) any {
-	if len(args) < 2 {
-		return failure(errors.New("source name and text are required"))
+	if len(args) < 4 {
+		return failure(errors.New("source name, text, signal, and callback are required"))
+	}
+
+	name := args[0].String()
+	text := args[1].String()
+	signal := args[2]
+	callback := args[3]
+
+	if callback.Type() != js.TypeFunction {
+		return failure(errors.New("callback must be callable"))
 	}
 
 	b.mu.Lock()
@@ -177,43 +188,73 @@ func (b *Bridge) compile(_ js.Value, args []js.Value) any {
 		return failure(errors.New("engine is closed"))
 	}
 	engine := b.engine
+	b.compiling++
 	b.mu.Unlock()
 
-	plan, err := engine.Compile(context.Background(), source.New(args[0].String(), args[1].String()))
-	if err != nil {
-		return failure(fmt.Errorf("compile query: %w", err))
-	}
+	go func() {
+		result := func() any {
+			ctx, cleanup, err := contextFromSignal(signal)
+			if err != nil {
+				return failure(err)
+			}
+			defer cleanup()
 
-	id := b.newID("plan")
-	params := plan.Params()
-	paramValues := make([]any, len(params))
+			if err := ctx.Err(); err != nil {
+				return failure(err)
+			}
 
-	for index, param := range params {
-		paramValues[index] = param
-	}
+			plan, err := engine.Compile(ctx, source.New(name, text))
+			if err != nil {
+				return failure(fmt.Errorf("compile query: %w", err))
+			}
 
-	b.mu.Lock()
-	if b.closed {
+			if err := ctx.Err(); err != nil {
+				_ = plan.Close()
+				return failure(err)
+			}
+
+			id := b.newID("plan")
+			params := plan.Params()
+			paramValues := make([]any, len(params))
+
+			for index, param := range params {
+				paramValues[index] = param
+			}
+
+			b.mu.Lock()
+			if b.closed {
+				b.mu.Unlock()
+				_ = plan.Close()
+				return failure(errors.New("engine is closed"))
+			}
+			b.plans[id] = &planHandle{plan: plan, sessions: make(map[string]*sessionHandle)}
+			b.mu.Unlock()
+
+			return ok(map[string]any{"id": id, "params": paramValues})
+		}()
+
+		b.mu.Lock()
+		b.compiling--
 		b.mu.Unlock()
-		_ = plan.Close()
-		return failure(errors.New("engine is closed"))
-	}
-	b.plans[id] = &planHandle{plan: plan, sessions: make(map[string]*sessionHandle)}
-	b.mu.Unlock()
 
-	return ok(map[string]any{"id": id, "params": paramValues})
+		invoke(callback, result)
+	}()
+
+	return ok(nil)
 }
 
 func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
-	if len(args) < 1 {
-		return failure(errors.New("plan id is required"))
+	if len(args) < 4 {
+		return failure(errors.New("plan id, params, signal, and callback are required"))
 	}
 
 	planID := args[0].String()
-	params := js.Undefined()
+	params := args[1]
+	signal := args[2]
+	callback := args[3]
 
-	if len(args) > 1 {
-		params = args[1]
+	if callback.Type() != js.TypeFunction {
+		return failure(errors.New("callback must be callable"))
 	}
 
 	parsed, err := jsParams(params)
@@ -224,39 +265,69 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 	b.mu.Lock()
 	handle, exists := b.plans[planID]
 
-	if !exists || handle.closed {
+	if !exists || handle.closed || b.closed {
 		b.mu.Unlock()
 		return failure(errors.New("plan is closed"))
 	}
 
 	plan := handle.plan
+	handle.pendingSessionCreations++
 	b.mu.Unlock()
 
-	options := make([]core.SessionOption, 0, 1)
-	if len(parsed) > 0 {
-		options = append(options, core.WithSessionParams(parsed))
-	}
+	go func() {
+		result := func() any {
+			ctx, cleanup, err := contextFromSignal(signal)
+			if err != nil {
+				return failure(err)
+			}
+			defer cleanup()
 
-	session, err := plan.NewSession(context.Background(), options...)
-	if err != nil {
-		return failure(fmt.Errorf("create session: %w", err))
-	}
+			if err := ctx.Err(); err != nil {
+				return failure(err)
+			}
 
-	id := b.newID("session")
-	sessionHandle := &sessionHandle{session: session, planID: planID}
+			options := make([]core.SessionOption, 0, 1)
+			if len(parsed) > 0 {
+				options = append(options, core.WithSessionParams(parsed))
+			}
 
-	b.mu.Lock()
-	handle, exists = b.plans[planID]
-	if !exists || handle.closed || b.closed {
+			session, err := plan.NewSession(ctx, options...)
+			if err != nil {
+				return failure(fmt.Errorf("create session: %w", err))
+			}
+
+			if err := ctx.Err(); err != nil {
+				_ = session.Close()
+				return failure(err)
+			}
+
+			id := b.newID("session")
+			sessionHandle := &sessionHandle{session: session, planID: planID}
+
+			b.mu.Lock()
+			handle, exists = b.plans[planID]
+			if !exists || handle.closed || b.closed {
+				b.mu.Unlock()
+				_ = session.Close()
+				return failure(errors.New("plan is closed"))
+			}
+			handle.sessions[id] = sessionHandle
+			b.sessions[id] = sessionHandle
+			b.mu.Unlock()
+
+			return ok(id)
+		}()
+
+		b.mu.Lock()
+		if current, found := b.plans[planID]; found {
+			current.pendingSessionCreations--
+		}
 		b.mu.Unlock()
-		_ = session.Close()
-		return failure(errors.New("plan is closed"))
-	}
-	handle.sessions[id] = sessionHandle
-	b.sessions[id] = sessionHandle
-	b.mu.Unlock()
 
-	return ok(id)
+		invoke(callback, result)
+	}()
+
+	return ok(nil)
 }
 
 func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
@@ -289,24 +360,23 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 	b.mu.Unlock()
 
 	go func() {
-		ctx, cleanup, err := contextFromSignal(signal)
-		if err != nil {
-			b.finishRun(id)
-			invoke(callback, failure(err))
-			return
-		}
+		result := func() any {
+			ctx, cleanup, err := contextFromSignal(signal)
+			if err != nil {
+				return failure(err)
+			}
+			defer cleanup()
 
-		defer cleanup()
+			output, runErr := session.Run(ctx)
+			if runErr != nil {
+				return failure(fmt.Errorf("run session: %w", runErr))
+			}
 
-		output, runErr := session.Run(ctx)
+			return ok(string(output.Content))
+		}()
+
 		b.finishRun(id)
-
-		if runErr != nil {
-			invoke(callback, failure(fmt.Errorf("run session: %w", runErr)))
-			return
-		}
-
-		invoke(callback, ok(string(output.Content)))
+		invoke(callback, result)
 	}()
 
 	return ok(nil)
@@ -407,6 +477,11 @@ func (b *Bridge) closePlanByID(id string) error {
 		return nil
 	}
 
+	if handle.pendingSessionCreations > 0 {
+		b.mu.Unlock()
+		return errors.New("cannot close a plan while creating a session")
+	}
+
 	for _, session := range handle.sessions {
 		if session.running {
 			b.mu.Unlock()
@@ -444,6 +519,18 @@ func (b *Bridge) closeEngine(_ js.Value, _ []js.Value) any {
 	if b.closed {
 		b.mu.Unlock()
 		return ok(nil)
+	}
+
+	if b.compiling > 0 {
+		b.mu.Unlock()
+		return failure(errors.New("cannot close an engine while compiling a plan"))
+	}
+
+	for _, plan := range b.plans {
+		if plan.pendingSessionCreations > 0 {
+			b.mu.Unlock()
+			return failure(errors.New("cannot close an engine while creating a session"))
+		}
 	}
 
 	for _, session := range b.sessions {

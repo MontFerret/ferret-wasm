@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Made plan compilation and session creation asynchronous across the
+  JavaScript/WASM boundary.
+- Added cancellation options for compilation and session creation.
+- Exposed synchronous `closed` metadata on engines, plans, and sessions.
+
 ## 2.0.0-alpha.30
 
 ### Changed

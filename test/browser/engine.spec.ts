@@ -7,8 +7,14 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
         const { create } = await import(modulePath);
         const engine = await create();
         try {
+            const plan = await engine.compile('RETURN @value * 2');
+            const session = await plan.createSession({
+                params: { value: 21 },
+            });
+
             return {
                 version: engine.version,
+                session: await session.run(),
                 value: await engine.run(
                     'FOR value IN 1..3 RETURN value * @factor',
                     { params: { factor: 2 } },
@@ -26,6 +32,7 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
         wasm: '2.0.0-alpha.30',
         ferret: 'v2.0.0-alpha.30',
     });
+    expect(result.session).toBe(42);
     expect(result.value).toEqual([2, 4, 6]);
     expect(result.http).toBe('YnJvd3Nlcg==');
 });

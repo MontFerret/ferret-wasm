@@ -14,8 +14,13 @@ export interface ExecutionOptions {
     signal?: AbortSignal;
 }
 
+export interface CompileOptions {
+    signal?: AbortSignal;
+}
+
 export interface SessionOptions {
     params?: Params;
+    signal?: AbortSignal;
 }
 
 export interface SessionRunOptions {
@@ -28,20 +33,23 @@ export interface Version {
 }
 
 export interface Session {
+    readonly closed: boolean;
     run<T = unknown>(options?: SessionRunOptions): Promise<T>;
     close(): Promise<void>;
 }
 
 export interface Plan {
     readonly params: readonly string[];
-    createSession(options?: SessionOptions): Session;
+    readonly closed: boolean;
+    createSession(options?: SessionOptions): Promise<Session>;
     run<T = unknown>(options?: ExecutionOptions): Promise<T>;
     close(): Promise<void>;
 }
 
 export interface Engine {
     readonly version: Readonly<Version>;
-    compile(source: SourceInput): Plan;
+    readonly closed: boolean;
+    compile(source: SourceInput, options?: CompileOptions): Promise<Plan>;
     run<T = unknown>(
         source: SourceInput,
         options?: ExecutionOptions,
