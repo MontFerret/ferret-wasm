@@ -20,7 +20,7 @@ func runtimeValueToJS(value runtime.Value) (js.Value, error) {
 
 	if binary, isBinary := value.(runtime.Binary); isBinary {
 		array := js.Global().Get("Uint8Array").New(len(binary))
-		js.CopyBytesToJS(array, []byte(binary))
+		js.CopyBytesToJS(array, binary)
 		return array, nil
 	}
 
@@ -63,6 +63,7 @@ func convertJSObject(input js.Value, seen []js.Value, path string) (any, error) 
 			return nil, fmt.Errorf("%s: cyclic JavaScript value", path)
 		}
 	}
+
 	seen = append(seen, input)
 
 	global := js.Global()
@@ -74,30 +75,37 @@ func convertJSObject(input js.Value, seen []js.Value, path string) (any, error) 
 
 	if global.Get("Array").Call("isArray", input).Bool() {
 		out := make([]any, input.Length())
+
 		for index := 0; index < input.Length(); index++ {
 			value, err := convertJSValue(input.Index(index), seen, fmt.Sprintf("%s[%d]", path, index))
 			if err != nil {
 				return nil, err
 			}
+
 			out[index] = value
 		}
+
 		return out, nil
 	}
 
 	object := global.Get("Object")
 	prototype := object.Call("getPrototypeOf", input)
+
 	if !prototype.IsNull() && !prototype.Equal(object.Get("prototype")) {
 		return nil, fmt.Errorf("%s: only plain JavaScript objects are supported", path)
 	}
 
 	keys := object.Call("keys", input)
 	out := make(map[string]any, keys.Length())
+
 	for index := 0; index < keys.Length(); index++ {
 		key := keys.Index(index).String()
 		value, err := convertJSValue(input.Get(key), seen, path+"."+key)
+
 		if err != nil {
 			return nil, err
 		}
+
 		out[key] = value
 	}
 
@@ -124,24 +132,29 @@ func jsParams(input js.Value) (map[string]any, error) {
 
 func invokeRuntimeFunction(ctx context.Context, fn js.Value, args ...runtime.Value) (runtime.Value, error) {
 	jsArgs := make([]any, len(args))
+
 	for index, arg := range args {
 		value, err := runtimeValueToJS(arg)
 		if err != nil {
 			return runtime.None, fmt.Errorf("convert argument %d: %w", index, err)
 		}
+
 		jsArgs[index] = value
 	}
 
 	var output js.Value
 	var invokeErr error
+
 	func() {
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				invokeErr = fmt.Errorf("JavaScript function panicked: %v", recovered)
 			}
 		}()
+
 		output = fn.Invoke(jsArgs...)
 	}()
+
 	if invokeErr != nil {
 		return runtime.None, invokeErr
 	}
@@ -154,41 +167,54 @@ func invokeRuntimeFunction(ctx context.Context, fn js.Value, args ...runtime.Val
 		value runtime.Value
 		err   error
 	}
+
 	result := make(chan settled, 1)
 
 	var success js.Func
 	var rejected js.Func
+
 	success = js.FuncOf(func(_ js.Value, values []js.Value) any {
 		value := js.Undefined()
+
 		if len(values) > 0 {
 			value = values[0]
 		}
+
 		parsed, err := parseFunctionOutput(value)
+
 		select {
 		case result <- settled{value: parsed, err: err}:
 		default:
 		}
+
 		go func() {
 			success.Release()
 			rejected.Release()
 		}()
+
 		return nil
 	})
+
 	rejected = js.FuncOf(func(_ js.Value, values []js.Value) any {
 		message := "JavaScript promise rejected"
+
 		if len(values) > 0 {
 			message = js.Global().Get("String").Invoke(values[0]).String()
 		}
+
 		select {
 		case result <- settled{err: errors.New(message)}:
 		default:
 		}
+
 		go func() {
 			success.Release()
 			rejected.Release()
 		}()
+
 		return nil
 	})
+
 	output.Call("then", success, rejected)
 
 	select {
@@ -212,9 +238,11 @@ func parseFunctionOutput(output js.Value) (runtime.Value, error) {
 	if err != nil {
 		return runtime.None, err
 	}
+
 	parsed, err := runtime.ValueOf(value)
 	if err != nil {
 		return runtime.None, err
 	}
+
 	return parsed, nil
 }

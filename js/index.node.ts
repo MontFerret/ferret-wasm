@@ -29,6 +29,7 @@ const platform: Platform = {
         if (source instanceof WebAssembly.Module) {
             return source;
         }
+
         if (source instanceof ArrayBuffer || source instanceof Uint8Array) {
             return source;
         }
@@ -39,15 +40,19 @@ const platform: Platform = {
                 : isRemote(source)
                   ? new URL(source)
                   : path.resolve(source);
+
         if (target instanceof URL && target.protocol !== 'file:') {
             const response = await fetch(target);
+
             if (!response.ok) {
                 throw new Error(
                     `Failed to load WASM: ${response.status} ${response.statusText}`,
                 );
             }
+
             return response.arrayBuffer();
         }
+
         return fs.promises.readFile(target);
     },
 };

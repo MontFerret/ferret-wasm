@@ -11,15 +11,19 @@ const platform: Platform = {
         if (source instanceof WebAssembly.Module) {
             return source;
         }
+
         if (source instanceof ArrayBuffer || source instanceof Uint8Array) {
             return source;
         }
+
         const response = await fetch(source);
+
         if (!response.ok) {
             throw new Error(
                 `Failed to load WASM: ${response.status} ${response.statusText}`,
             );
         }
+
         return response.arrayBuffer();
     },
 };

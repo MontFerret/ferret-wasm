@@ -12,9 +12,11 @@ const abortCode = "ABORTED"
 
 func ok(data any) any {
 	out := map[string]any{"ok": true}
+
 	if data != nil {
 		out["data"] = data
 	}
+
 	return out
 }
 

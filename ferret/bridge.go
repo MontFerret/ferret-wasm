@@ -16,30 +16,32 @@ import (
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
-type planHandle struct {
-	plan     *core.Plan
-	sessions map[string]*sessionHandle
-	closed   bool
-}
+type (
+	planHandle struct {
+		plan     *core.Plan
+		sessions map[string]*sessionHandle
+		closed   bool
+	}
 
-type sessionHandle struct {
-	session *core.Session
-	planID  string
-	running bool
-	closed  bool
-}
+	sessionHandle struct {
+		session *core.Session
+		planID  string
+		running bool
+		closed  bool
+	}
 
-type Bridge struct {
-	mu       sync.Mutex
-	engine   *core.Engine
-	plans    map[string]*planHandle
-	sessions map[string]*sessionHandle
-	methods  []js.Func
-	version  Version
-	nextID   atomic.Uint64
-	shutdown func()
-	closed   bool
-}
+	Bridge struct {
+		mu       sync.Mutex
+		engine   *core.Engine
+		plans    map[string]*planHandle
+		sessions map[string]*sessionHandle
+		methods  []js.Func
+		version  Version
+		nextID   atomic.Uint64
+		shutdown func()
+		closed   bool
+	}
+)
 
 func NewBridge(version Version, shutdown func()) *Bridge {
 	return &Bridge{
@@ -82,18 +84,22 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 	}
 
 	functions := js.Undefined()
+
 	if len(args) > 0 {
 		functions = args[0]
 	}
+
 	registered, err := parseFunctions(functions)
 	if err != nil {
 		return failure(err)
 	}
 
 	options := make([]core.Option, 0, 1)
+
 	if len(registered) > 0 {
 		options = append(options, core.WithFunctionsRegistrar(func(namespace runtime.Namespace) {
 			definitions := namespace.Function().Var()
+
 			for name, function := range registered {
 				fn := function
 				definitions.Add(name, func(ctx context.Context, args ...runtime.Value) (runtime.Value, error) {
@@ -107,7 +113,9 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 	if err != nil {
 		return failure(fmt.Errorf("initialize engine: %w", err))
 	}
+
 	b.engine = engine
+
 	return ok(nil)
 }
 
@@ -121,27 +129,33 @@ func parseFunctions(input js.Value) (map[string]js.Value, error) {
 
 	object := js.Global().Get("Object")
 	prototype := object.Call("getPrototypeOf", input)
+
 	if !prototype.IsNull() && !prototype.Equal(object.Get("prototype")) {
 		return nil, errors.New("functions must be a plain JavaScript object")
 	}
 
 	keys := object.Call("keys", input)
 	functions := make(map[string]js.Value, keys.Length())
+
 	for index := 0; index < keys.Length(); index++ {
 		rawName := keys.Index(index).String()
 		name := strings.ToUpper(strings.TrimSpace(rawName))
+
 		if name == "" {
 			return nil, errors.New("function name cannot be empty")
 		}
 		if _, duplicate := functions[name]; duplicate {
 			return nil, fmt.Errorf("duplicate function name %q", name)
 		}
+
 		function := input.Get(rawName)
 		if function.Type() != js.TypeFunction {
 			return nil, fmt.Errorf("function %q must be callable", rawName)
 		}
+
 		functions[name] = function
 	}
+
 	return functions, nil
 }
 
@@ -173,6 +187,7 @@ func (b *Bridge) compile(_ js.Value, args []js.Value) any {
 	id := b.newID("plan")
 	params := plan.Params()
 	paramValues := make([]any, len(params))
+
 	for index, param := range params {
 		paramValues[index] = param
 	}
@@ -193,11 +208,14 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 	if len(args) < 1 {
 		return failure(errors.New("plan id is required"))
 	}
+
 	planID := args[0].String()
 	params := js.Undefined()
+
 	if len(args) > 1 {
 		params = args[1]
 	}
+
 	parsed, err := jsParams(params)
 	if err != nil {
 		return failure(fmt.Errorf("convert params: %w", err))
@@ -205,10 +223,12 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 
 	b.mu.Lock()
 	handle, exists := b.plans[planID]
+
 	if !exists || handle.closed {
 		b.mu.Unlock()
 		return failure(errors.New("plan is closed"))
 	}
+
 	plan := handle.plan
 	b.mu.Unlock()
 
@@ -216,6 +236,7 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 	if len(parsed) > 0 {
 		options = append(options, core.WithSessionParams(parsed))
 	}
+
 	session, err := plan.NewSession(context.Background(), options...)
 	if err != nil {
 		return failure(fmt.Errorf("create session: %w", err))
@@ -223,6 +244,7 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 
 	id := b.newID("session")
 	sessionHandle := &sessionHandle{session: session, planID: planID}
+
 	b.mu.Lock()
 	handle, exists = b.plans[planID]
 	if !exists || handle.closed || b.closed {
@@ -241,9 +263,11 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 	if len(args) < 3 {
 		return failure(errors.New("session id, signal, and callback are required"))
 	}
+
 	id := args[0].String()
 	signal := args[1]
 	callback := args[2]
+
 	if callback.Type() != js.TypeFunction {
 		return failure(errors.New("callback must be callable"))
 	}
@@ -254,10 +278,12 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 		b.mu.Unlock()
 		return failure(errors.New("session is closed"))
 	}
+
 	if handle.running {
 		b.mu.Unlock()
 		return failure(errors.New("session is already running"))
 	}
+
 	handle.running = true
 	session := handle.session
 	b.mu.Unlock()
@@ -269,14 +295,17 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 			invoke(callback, failure(err))
 			return
 		}
+
 		defer cleanup()
 
 		output, runErr := session.Run(ctx)
 		b.finishRun(id)
+
 		if runErr != nil {
 			invoke(callback, failure(fmt.Errorf("run session: %w", runErr)))
 			return
 		}
+
 		invoke(callback, ok(string(output.Content)))
 	}()
 
@@ -288,12 +317,14 @@ func contextFromSignal(signal js.Value) (context.Context, func(), error) {
 	if signal.Type() == js.TypeUndefined || signal.Type() == js.TypeNull {
 		return ctx, cancel, nil
 	}
+
 	if signal.Type() != js.TypeObject ||
 		signal.Get("addEventListener").Type() != js.TypeFunction ||
 		signal.Get("removeEventListener").Type() != js.TypeFunction {
 		cancel()
 		return nil, func() {}, errors.New("signal must be an AbortSignal")
 	}
+
 	if signal.Get("aborted").Bool() {
 		cancel()
 		return ctx, cancel, nil
@@ -303,20 +334,25 @@ func contextFromSignal(signal js.Value) (context.Context, func(), error) {
 		cancel()
 		return nil
 	})
+
 	signal.Call("addEventListener", "abort", abort)
+
 	cleanup := func() {
 		signal.Call("removeEventListener", "abort", abort)
 		abort.Release()
 		cancel()
 	}
+
 	return ctx, cleanup, nil
 }
 
 func (b *Bridge) finishRun(id string) {
 	b.mu.Lock()
+
 	if handle, exists := b.sessions[id]; exists {
 		handle.running = false
 	}
+
 	b.mu.Unlock()
 }
 
@@ -324,25 +360,31 @@ func (b *Bridge) closeSession(_ js.Value, args []js.Value) any {
 	if len(args) < 1 {
 		return failure(errors.New("session id is required"))
 	}
+
 	return resultFromError(b.closeSessionByID(args[0].String()))
 }
 
 func (b *Bridge) closeSessionByID(id string) error {
 	b.mu.Lock()
 	handle, exists := b.sessions[id]
+
 	if !exists || handle.closed {
 		b.mu.Unlock()
 		return nil
 	}
+
 	if handle.running {
 		b.mu.Unlock()
 		return errors.New("cannot close a running session")
 	}
+
 	handle.closed = true
 	delete(b.sessions, id)
+
 	if plan, found := b.plans[handle.planID]; found {
 		delete(plan.sessions, id)
 	}
+
 	b.mu.Unlock()
 
 	return handle.session.Close()
@@ -352,22 +394,27 @@ func (b *Bridge) closePlan(_ js.Value, args []js.Value) any {
 	if len(args) < 1 {
 		return failure(errors.New("plan id is required"))
 	}
+
 	return resultFromError(b.closePlanByID(args[0].String()))
 }
 
 func (b *Bridge) closePlanByID(id string) error {
 	b.mu.Lock()
 	handle, exists := b.plans[id]
+
 	if !exists || handle.closed {
 		b.mu.Unlock()
 		return nil
 	}
+
 	for _, session := range handle.sessions {
 		if session.running {
 			b.mu.Unlock()
+
 			return errors.New("cannot close a plan with a running session")
 		}
 	}
+
 	sessionIDs := make([]string, 0, len(handle.sessions))
 	for sessionID := range handle.sessions {
 		sessionIDs = append(sessionIDs, sessionID)
@@ -398,16 +445,19 @@ func (b *Bridge) closeEngine(_ js.Value, _ []js.Value) any {
 		b.mu.Unlock()
 		return ok(nil)
 	}
+
 	for _, session := range b.sessions {
 		if session.running {
 			b.mu.Unlock()
 			return failure(errors.New("cannot close an engine with a running session"))
 		}
 	}
+
 	planIDs := make([]string, 0, len(b.plans))
 	for id := range b.plans {
 		planIDs = append(planIDs, id)
 	}
+
 	engine := b.engine
 	b.mu.Unlock()
 
@@ -415,6 +465,7 @@ func (b *Bridge) closeEngine(_ js.Value, _ []js.Value) any {
 	for _, id := range planIDs {
 		closeErr = errors.Join(closeErr, b.closePlanByID(id))
 	}
+
 	if engine != nil {
 		closeErr = errors.Join(closeErr, engine.Close())
 	}
@@ -431,10 +482,13 @@ func (b *Bridge) shutdownRuntime(_ js.Value, _ []js.Value) any {
 	b.mu.Lock()
 	closed := b.closed
 	b.mu.Unlock()
+
 	if !closed {
 		return failure(errors.New("engine must be closed before shutdown"))
 	}
+
 	b.shutdown()
+
 	return ok(nil)
 }
 
@@ -446,5 +500,6 @@ func resultFromError(err error) any {
 	if err != nil {
 		return failure(err)
 	}
+
 	return ok(nil)
 }

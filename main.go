@@ -30,10 +30,12 @@ func main() {
 
 	global := js.Global()
 	bridges := global.Get("__ferretWasmBridges")
+
 	if bridges.Type() != js.TypeObject {
 		bridges = global.Get("Object").Call("create", js.Null())
 		global.Set("__ferretWasmBridges", bridges)
 	}
+
 	bridges.Set(token, bridge.JSValue())
 
 	<-done
