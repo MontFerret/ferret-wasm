@@ -1,7 +1,7 @@
 {
-    "name": "@montferret/ferret-wasm",
+    "name": "@montferret/ferret",
     "version": "2.0.0-alpha.30",
-    "description": "Ferret v2 compiler and runtime for WebAssembly",
+    "description": "Ferret runtime for JavaScript, browsers, and Node.js.",
     "type": "module",
     "main": "./dist/index.node.cjs",
     "module": "./dist/index.node.js",
@@ -40,7 +40,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/MontFerret/ferret-wasm.git"
+        "url": "git+https://github.com/MontFerret/ferret-js.git"
     },
     "keywords": [
         "ferret",
@@ -54,9 +54,9 @@
     "author": "MontFerret Team",
     "license": "Apache-2.0",
     "bugs": {
-        "url": "https://github.com/MontFerret/ferret-wasm/issues"
+        "url": "https://github.com/MontFerret/ferret-js/issues"
     },
-    "homepage": "https://github.com/MontFerret/ferret-wasm#readme",
+    "homepage": "https://github.com/MontFerret/ferret-js#readme",
     "engines": {
         "node": ">=22"
     },

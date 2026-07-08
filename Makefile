@@ -1,7 +1,7 @@
 PACKAGE_VERSION := $(shell node -p "require('./package.json').version")
 FERRET_VERSION := v2.0.0-alpha.30
 DIST := ./dist
-GO_CACHE ?= /tmp/ferret-wasm-go-cache
+GO_CACHE ?= /tmp/ferret-go-cache
 
 .PHONY: build clean fmt install js test test-browser test-go wasm
 

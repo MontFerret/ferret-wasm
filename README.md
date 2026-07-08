@@ -1,29 +1,27 @@
-# Ferret WASM
+# Ferret JS
 
-Ferret v2 compiled to WebAssembly for Node.js and modern browsers.
+Official JavaScript runtime for compiling and running Ferret programs in Node.js and modern browsers.
 
-This package contains `github.com/MontFerret/ferret/v2` at
-`v2.0.0-alpha.30`. It exposes explicit engine, plan, and session lifecycles and
-returns JSON-decoded JavaScript values.
+Powered by `github.com/MontFerret/ferret/v2`, this package exposes a small TypeScript-friendly API around Ferret engines, compiled plans, and execution sessions. Results are returned as JSON-decoded JavaScript values.
 
-## Requirements
-
-- Node.js 22 or newer, or a modern browser with WebAssembly, `fetch`, and
-  `crypto.getRandomValues`
-- Go 1.25 or newer when building from source
+> Ferret v2 is currently in alpha. APIs may still change before the stable release.
 
 ## Installation
 
 ```sh
-npm install @montferret/ferret-wasm
+npm install @montferret/ferret
 ```
 
-## Direct execution
+## Requirements
 
-ES modules:
+- Node.js 22 or newer
+- A modern browser with WebAssembly, `fetch`, and `crypto.getRandomValues`
+- Go 1.25 or newer when building from source
+
+## Quick start
 
 ```javascript
-import { create } from '@montferret/ferret-wasm';
+import { create } from '@montferret/ferret';
 
 const engine = await create();
 
@@ -39,17 +37,23 @@ try {
 }
 ```
 
-CommonJS:
+CommonJS is also supported:
 
 ```javascript
-const { create } = require('@montferret/ferret-wasm');
+const { create } = require('@montferret/ferret');
 ```
 
-## Plans and sessions
+## Core concepts
 
-Compiled plans can be run with one-off parameters or used to create an explicit
-session. A session captures its parameters when it is created and may be reused
-sequentially.
+Ferret JS has three explicit runtime objects:
+
+- `Engine` owns the Ferret runtime and registered JavaScript functions.
+- `Plan` is a compiled Ferret program that can be reused.
+- `Session` is an execution context with captured parameters.
+
+For one-off execution, use `engine.run()`. For repeated execution, compile once and reuse a plan.
+
+## Plans and sessions
 
 ```javascript
 const engine = await create();
@@ -70,15 +74,11 @@ try {
 }
 ```
 
-Sessions reject concurrent runs. Closing a plan or engine closes all idle child
-resources, but rejects without closing anything while a child session is
-running. Every `close()` method is idempotent.
+Sessions are reusable, but they do not support concurrent runs. Closing an engine closes its idle child plans and sessions. Closing a plan closes its idle child sessions. If a child session is currently running, `close()` rejects without closing anything. Every `close()` method is idempotent.
 
-## JavaScript functions
+## Register JavaScript functions
 
-Functions are registered when the engine is created and cannot be mutated
-afterward. Names are canonicalized to uppercase, including namespace segments.
-Functions may return a value or a promise.
+JavaScript functions are registered when the engine is created and cannot be mutated afterward. Function names are canonicalized to uppercase, including namespace segments. Functions may return either a value or a promise.
 
 ```javascript
 const engine = await create({
@@ -96,13 +96,27 @@ try {
 }
 ```
 
-Parameters and function values support JSON-compatible values plus
-`Uint8Array`. JavaScript `undefined` maps to Ferret `NONE`. Cycles, non-finite
-numbers, class instances, and other unsupported values fail explicitly.
+## Values
+
+Parameters, return values, and JavaScript function values support JSON-compatible data plus `Uint8Array`.
+
+| JavaScript value | Ferret value |
+| --- | --- |
+| `undefined` / `null` | `NONE` |
+| `boolean` | Boolean |
+| `string` | String |
+| finite `number` | Number |
+| `Array` | Array |
+| plain object | Object |
+| `Uint8Array` | Binary |
+
+Unsupported values fail explicitly. This includes cyclic objects, non-finite numbers, class instances, functions as values, and other non-plain JavaScript objects.
+
+Binary values returned from Ferret are JSON-decoded according to Ferret's serialization rules.
 
 ## Cancellation
 
-Pass an `AbortSignal` to a direct, plan, or session run:
+Pass an `AbortSignal` to `engine.run()`, `plan.run()`, or `session.run()`:
 
 ```javascript
 const controller = new AbortController();
@@ -119,15 +133,12 @@ try {
 }
 ```
 
-Ferret execution and HTTP calls observe cancellation. A JavaScript promise
-returned by a registered function cannot be forcibly cancelled; the package
-keeps the WASM runtime alive until that promise settles and then reports the
-run as aborted.
+Ferret execution and HTTP calls observe cancellation. JavaScript promises returned by registered functions cannot be forcibly cancelled; the runtime remains alive until the promise settles, then reports the run as aborted.
 
 ## Browser loading
 
-The browser export loads `ferret.wasm` and `wasm_exec.js` relative to the
-package entrypoint. Both assets must be served with the generated JavaScript.
+The browser export loads `ferret.wasm` and `wasm_exec.js` relative to the package entrypoint. Both files must be served together with the generated JavaScript bundle.
+
 You can override the WASM source:
 
 ```javascript
@@ -136,22 +147,26 @@ const engine = await create({
 });
 ```
 
-`wasm` also accepts a file path in Node.js, an `ArrayBuffer`, a `Uint8Array`, or
-a precompiled `WebAssembly.Module`.
+The `wasm` option accepts:
 
-The full Ferret v2 standard library is registered. Browser HTTP calls use the
-browser networking stack and are subject to CORS.
+- a browser URL
+- a file path in Node.js
+- an `ArrayBuffer`
+- a `Uint8Array`
+- a precompiled `WebAssembly.Module`
+
+The full Ferret v2 standard library is registered. In browsers, HTTP calls use the browser networking stack and are subject to CORS.
 
 ## Migrating from v1
 
-| v1                             | v2                                      |
-| ------------------------------ | --------------------------------------- |
-| `compiler.exec(query, params)` | `engine.run(query, { params })`         |
-| `compiler.compile(query)`      | `engine.compile(query)`                 |
-| `program.run(params)`          | `plan.run({ params })`                  |
-| `program.destroy()`            | `await plan.close()`                    |
-| `compiler.register(name, fn)`  | `create({ functions: { [name]: fn } })` |
-| `compiler.version()`           | `engine.version`                        |
+| v1 | v2 |
+| --- | --- |
+| `compiler.exec(query, params)` | `engine.run(query, { params })` |
+| `compiler.compile(query)` | `engine.compile(query)` |
+| `program.run(params)` | `plan.run({ params })` |
+| `program.destroy()` | `await plan.close()` |
+| `compiler.register(name, fn)` | `create({ functions: { [name]: fn } })` |
+| `compiler.version()` | `engine.version` |
 
 There is no v1 compatibility facade.
 
@@ -164,5 +179,4 @@ npm run check
 npm run test:browser
 ```
 
-The build copies `wasm_exec.js` from the same Go installation used to compile
-`ferret.wasm`; these files must always be published together.
+The build copies `wasm_exec.js` from the same Go installation used to compile `ferret.wasm`. These files must always be published together.

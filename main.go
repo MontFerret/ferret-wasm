@@ -6,7 +6,7 @@ import (
 	"os"
 	"syscall/js"
 
-	wasm "github.com/MontFerret/ferret-wasm/ferret"
+	ferretjs "github.com/MontFerret/ferret-js/ferret"
 )
 
 var (
@@ -21,7 +21,7 @@ func main() {
 	}
 
 	done := make(chan struct{})
-	bridge := wasm.NewBridge(wasm.Version{
+	bridge := ferretjs.NewBridge(ferretjs.Version{
 		WASM:   version,
 		Ferret: ferretVersion,
 	}, func() {

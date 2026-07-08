@@ -1,4 +1,4 @@
-module github.com/MontFerret/ferret-wasm
+module github.com/MontFerret/ferret-js
 
 go 1.25.0
 
