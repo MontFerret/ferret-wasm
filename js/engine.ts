@@ -380,10 +380,6 @@ export class EngineImpl implements Engine {
         unwrap(this.#bridge.closeEngine());
         this.#closed = true;
 
-        // Go schedules WASM goroutine callbacks with timers. Allow callbacks
-        // from completed resource operations to drain before exiting runtime.
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
         unwrap(this.#bridge.shutdown());
         await this.#runtimeDone;
     }

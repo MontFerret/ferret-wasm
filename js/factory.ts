@@ -1,4 +1,9 @@
-import type { FerretGlobals, GoBridge, GoRuntimeConstructor } from './bridge';
+import type {
+    FerretGlobals,
+    GoBridge,
+    GoRuntime,
+    GoRuntimeConstructor,
+} from './bridge';
 import { unwrap } from './bridge';
 import { EngineImpl } from './engine';
 import type { CreateOptions, Engine } from './types';
@@ -50,7 +55,7 @@ export async function createWithPlatform(
         instance = instantiated.instance;
     }
 
-    const runtimeDone = go.run(instance);
+    const runtimeDone = runGoRuntime(go, instance);
 
     let bridge: GoBridge;
 
@@ -76,6 +81,20 @@ export async function createWithPlatform(
     }
 
     return new EngineImpl(bridge, runtimeDone, unwrap(bridge.version()));
+}
+
+/** @internal */
+export function runGoRuntime(
+    go: GoRuntime,
+    instance: WebAssembly.Instance,
+): Promise<void> {
+    return go.run(instance).finally(() => {
+        for (const timeout of go._scheduledTimeouts.values()) {
+            clearTimeout(timeout);
+        }
+
+        go._scheduledTimeouts.clear();
+    });
 }
 
 async function waitForBridge(

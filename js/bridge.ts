@@ -45,6 +45,7 @@ export interface GoBridge {
 }
 
 export interface GoRuntime {
+    _scheduledTimeouts: Map<number, ReturnType<typeof setTimeout>>;
     env: Record<string, string>;
     importObject: WebAssembly.Imports;
     run(instance: WebAssembly.Instance): Promise<void>;
