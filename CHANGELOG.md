@@ -9,7 +9,7 @@
 - Added cancellation options for compilation and session creation.
 - Exposed synchronous `closed` metadata on engines, plans, and sessions.
 
-## 2.0.0-alpha.30
+## 2.0.0-alpha.1
 
 ### Changed
 

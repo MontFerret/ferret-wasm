@@ -11,7 +11,7 @@ describe('Ferret WASM v2', () => {
         const engine = await create();
         try {
             expect(engine.version).toEqual({
-                wasm: '2.0.0-alpha.30',
+                wasm: '2.0.0-alpha.1',
                 ferret: 'v2.0.0-alpha.30',
             });
             await expect(
