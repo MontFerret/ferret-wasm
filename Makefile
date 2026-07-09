@@ -1,5 +1,5 @@
-PACKAGE_VERSION := $(shell node -p "require('./package.json').version")
-FERRET_VERSION := v2.0.0-alpha.30
+PACKAGE_VERSION ?= $(shell sh scripts/versions.sh package)
+FERRET_VERSION = $(shell sh scripts/versions.sh ferret)
 DIST := ./dist
 GO_CACHE ?= /tmp/ferret-go-cache
 
