@@ -163,7 +163,7 @@ func parseFunctions(input js.Value) (map[string]js.Value, error) {
 
 func (b *Bridge) getVersion(_ js.Value, _ []js.Value) any {
 	return ok(map[string]any{
-		"wasm":   b.version.WASM,
+		"self":   b.version.Self,
 		"ferret": b.version.Ferret,
 	})
 }

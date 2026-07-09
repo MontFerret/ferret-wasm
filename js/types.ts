@@ -28,7 +28,7 @@ export interface SessionRunOptions {
 }
 
 export interface Version {
-    wasm: string;
+    self: string;
     ferret: string;
 }
 

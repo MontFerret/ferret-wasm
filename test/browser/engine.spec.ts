@@ -29,7 +29,7 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
     });
 
     expect(result.version).toEqual({
-        wasm: '2.0.0-alpha.1',
+        self: '2.0.0-alpha.1',
         ferret: '2.0.0-alpha.30',
     });
     expect(result.session).toBe(42);

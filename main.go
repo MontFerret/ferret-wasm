@@ -22,7 +22,7 @@ func main() {
 
 	done := make(chan struct{})
 	bridge := ferretjs.NewBridge(ferretjs.Version{
-		WASM:   version,
+		Self:   version,
 		Ferret: ferretVersion,
 	}, func() {
 		close(done)

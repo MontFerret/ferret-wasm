@@ -3,6 +3,6 @@
 package ferret
 
 type Version struct {
-	WASM   string `json:"wasm"`
+	Self   string `json:"self"`
 	Ferret string `json:"ferret"`
 }
