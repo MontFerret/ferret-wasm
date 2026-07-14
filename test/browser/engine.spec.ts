@@ -30,7 +30,7 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
 
     expect(result.version).toEqual({
         self: '2.0.0-alpha.1',
-        ferret: '2.0.0-alpha.30',
+        ferret: '2.0.0-alpha.31',
     });
     expect(result.session).toBe(42);
     expect(result.value).toEqual([2, 4, 6]);
