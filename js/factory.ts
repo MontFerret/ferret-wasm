@@ -6,10 +6,12 @@ import type {
 } from './bridge';
 import { unwrap } from './bridge';
 import { EngineImpl } from './engine';
+import type { HTTPTransport } from './http';
 import type { CreateOptions, Engine } from './types';
 
 export interface Platform {
     defaultWasm: URL;
+    createHTTPTransport(): HTTPTransport;
     prepare(runtime: URL): Promise<void>;
     load(
         source: string | URL | ArrayBuffer | Uint8Array | WebAssembly.Module,
@@ -29,6 +31,33 @@ export async function createWithPlatform(
         throw new TypeError('functions must be a plain JavaScript object');
     }
 
+    if (options.http !== undefined && !isPlainObject(options.http)) {
+        throw new TypeError('http must be a plain JavaScript object');
+    }
+
+    if (
+        options.http?.allowLocalhost !== undefined &&
+        typeof options.http.allowLocalhost !== 'boolean'
+    ) {
+        throw new TypeError('http.allowLocalhost must be a boolean');
+    }
+
+    const transport = platform.createHTTPTransport();
+
+    try {
+        return await startEngine(platform, runtimeURL, options, transport);
+    } catch (error) {
+        transport.close();
+        throw error;
+    }
+}
+
+async function startEngine(
+    platform: Platform,
+    runtimeURL: URL,
+    options: CreateOptions,
+    transport: HTTPTransport,
+): Promise<Engine> {
     await platform.prepare(runtimeURL);
     const globals = globalThis as typeof globalThis & FerretGlobals;
     const Go = globals.Go as GoRuntimeConstructor | undefined;
@@ -57,14 +86,22 @@ export async function createWithPlatform(
 
     const runtimeDone = runGoRuntime(go, instance);
 
-    let bridge: GoBridge;
+    let bridge: GoBridge | undefined;
+    let engine: Engine | undefined;
 
     try {
         bridge = await waitForBridge(globals, token, runtimeDone);
+        unwrap(
+            bridge.initialize(
+                options.functions ?? {},
+                options.http?.allowLocalhost ?? false,
+                transport,
+            ),
+        );
+        engine = new EngineImpl(bridge, runtimeDone, unwrap(bridge.version()));
         delete globals.__ferretWasmBridges?.[token];
-        unwrap(bridge.initialize(options.functions ?? {}));
     } catch (error) {
-        const candidate = globals.__ferretWasmBridges?.[token];
+        const candidate = bridge ?? globals.__ferretWasmBridges?.[token];
         delete globals.__ferretWasmBridges?.[token];
 
         if (candidate != null) {
@@ -80,7 +117,11 @@ export async function createWithPlatform(
         throw error;
     }
 
-    return new EngineImpl(bridge, runtimeDone, unwrap(bridge.version()));
+    if (engine == null) {
+        throw new Error('Go WASM bridge did not initialize');
+    }
+
+    return engine;
 }
 
 /** @internal */

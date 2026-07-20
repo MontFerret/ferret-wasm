@@ -20,6 +20,21 @@ createServer((request, response) => {
         return;
     }
 
+    if (request.url === '/api/redirect') {
+        response.writeHead(302, { Location: '/api/value' });
+        response.end();
+        return;
+    }
+
+    if (request.url === '/api/slow') {
+        const timeout = setTimeout(() => {
+            response.writeHead(200, { 'Content-Type': 'text/plain' });
+            response.end('late');
+        }, 5_000);
+        response.once('close', () => clearTimeout(timeout));
+        return;
+    }
+
     const pathname =
         request.url === '/' ? '/test/browser/index.html' : request.url;
     const relative = normalize(pathname).replace(/^(\.\.[/\\])+/, '');

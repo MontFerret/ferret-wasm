@@ -4,9 +4,14 @@ export type RuntimeFunction = (
     ...args: unknown[]
 ) => unknown | Promise<unknown>;
 
+export interface HTTPOptions {
+    allowLocalhost?: boolean;
+}
+
 export interface CreateOptions {
     wasm?: string | URL | ArrayBuffer | Uint8Array | WebAssembly.Module;
     functions?: Record<string, RuntimeFunction>;
+    http?: HTTPOptions;
 }
 
 export interface ExecutionOptions {

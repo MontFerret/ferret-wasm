@@ -6,6 +6,7 @@ import { webcrypto } from 'node:crypto';
 
 import type { FerretGlobals } from './bridge';
 import { createWithPlatform, type Platform } from './factory';
+import { createNodeHTTPTransport } from './node_http';
 import type { CreateOptions } from './types';
 
 declare const __filename: string | undefined;
@@ -17,6 +18,7 @@ const moduleURL =
 
 const platform: Platform = {
     defaultWasm: new URL('./ferret.wasm', moduleURL),
+    createHTTPTransport: createNodeHTTPTransport,
     async prepare(runtime): Promise<void> {
         const globals = globalThis as typeof globalThis & FerretGlobals;
         globals.fs ??= fs;
@@ -74,6 +76,7 @@ export type {
     CreateOptions,
     Engine,
     ExecutionOptions,
+    HTTPOptions,
     Params,
     Plan,
     RuntimeFunction,

@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Added an explicit `http.allowLocalhost` engine option for trusted loopback
+  access while preserving Ferret's secure HTTP defaults.
+
 ### Changed
 
+- Replaced Go's WASM HTTP adapter with per-engine browser and Node transports.
+  Node validates and pins DNS results while Ferret policy-checks redirects;
+  browsers allow same-origin requests only and reject redirects.
 - Made plan compilation and session creation asynchronous across the
   JavaScript/WASM boundary.
 - Added cancellation options for compilation and session creation.
