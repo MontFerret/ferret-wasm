@@ -5,7 +5,9 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
     const result = await page.evaluate(async () => {
         const modulePath = '/dist/index.js';
         const { create } = await import(modulePath);
-        const engine = await create();
+        const engine = await create({
+            http: { allowLocalhost: true },
+        });
         try {
             const plan = await engine.compile('RETURN @value * 2');
             const session = await plan.createSession({
@@ -35,6 +37,27 @@ test('loads the browser package and executes Ferret', async ({ page }) => {
     expect(result.session).toBe(42);
     expect(result.value).toEqual([2, 4, 6]);
     expect(result.http).toBe('YnJvd3Nlcg==');
+});
+
+test('blocks localhost HTTP by default', async ({ page }) => {
+    await page.goto('/');
+    const message = await page.evaluate(async () => {
+        const modulePath = '/dist/index.js';
+        const { create } = await import(modulePath);
+        const engine = await create();
+        try {
+            await engine.run(
+                `RETURN IO::NET::HTTP::GET('${location.origin}/api/value')`,
+            );
+            return '';
+        } catch (error) {
+            return (error as Error).message;
+        } finally {
+            await engine.close();
+        }
+    });
+
+    expect(message).toContain('localhost is not allowed');
 });
 
 test('supports host functions and cancellation in a browser', async ({

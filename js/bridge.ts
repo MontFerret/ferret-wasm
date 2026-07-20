@@ -19,6 +19,7 @@ export interface CompileResult {
 export interface GoBridge {
     initialize(
         functions: Record<string, RuntimeFunction>,
+        allowLocalhost: boolean,
     ): BridgeResult<undefined>;
     version(): BridgeResult<Version>;
     compile(

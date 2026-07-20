@@ -29,6 +29,17 @@ export async function createWithPlatform(
         throw new TypeError('functions must be a plain JavaScript object');
     }
 
+    if (options.http !== undefined && !isPlainObject(options.http)) {
+        throw new TypeError('http must be a plain JavaScript object');
+    }
+
+    if (
+        options.http?.allowLocalhost !== undefined &&
+        typeof options.http.allowLocalhost !== 'boolean'
+    ) {
+        throw new TypeError('http.allowLocalhost must be a boolean');
+    }
+
     await platform.prepare(runtimeURL);
     const globals = globalThis as typeof globalThis & FerretGlobals;
     const Go = globals.Go as GoRuntimeConstructor | undefined;
@@ -62,7 +73,12 @@ export async function createWithPlatform(
     try {
         bridge = await waitForBridge(globals, token, runtimeDone);
         delete globals.__ferretWasmBridges?.[token];
-        unwrap(bridge.initialize(options.functions ?? {}));
+        unwrap(
+            bridge.initialize(
+                options.functions ?? {},
+                options.http?.allowLocalhost ?? false,
+            ),
+        );
     } catch (error) {
         const candidate = globals.__ferretWasmBridges?.[token];
         delete globals.__ferretWasmBridges?.[token];

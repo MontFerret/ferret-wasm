@@ -95,6 +95,15 @@ describe('Ferret WASM v2', () => {
         ).rejects.toThrow('duplicate function name');
     });
 
+    it('rejects invalid HTTP options', async () => {
+        await expect(create({ http: [] } as never)).rejects.toThrow(
+            'http must be a plain JavaScript object',
+        );
+        await expect(
+            create({ http: { allowLocalhost: 'yes' } } as never),
+        ).rejects.toThrow('http.allowLocalhost must be a boolean');
+    });
+
     it('cancels a run and rejects concurrent session reuse and close', async () => {
         const engine = await create({
             functions: {

@@ -170,7 +170,19 @@ The `wasm` option accepts:
 - a `Uint8Array`
 - a precompiled `WebAssembly.Module`
 
-The full Ferret v2 standard library is registered. In browsers, HTTP calls use the browser networking stack and are subject to CORS.
+The full Ferret v2 standard library is registered. Ferret's HTTP policy denies
+localhost and loopback addresses by default. Trusted applications can opt in to
+localhost access when creating an engine:
+
+```javascript
+const engine = await create({
+    http: { allowLocalhost: true },
+});
+```
+
+This option enables loopback access only; private and link-local networks remain
+blocked. In browsers, HTTP calls also use the browser networking stack and are
+subject to CORS.
 
 ## Migrating from v1
 

@@ -12,6 +12,7 @@ import (
 	"syscall/js"
 
 	core "github.com/MontFerret/ferret/v2"
+	ferretnet "github.com/MontFerret/ferret/v2/pkg/net"
 	"github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
@@ -34,6 +35,7 @@ type (
 	Bridge struct {
 		mu        sync.Mutex
 		engine    *core.Engine
+		network   ferretnet.Network
 		plans     map[string]*planHandle
 		sessions  map[string]*sessionHandle
 		methods   []js.Func
@@ -81,6 +83,7 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 	if b.engine != nil {
 		return failure(errors.New("engine is already initialized"))
 	}
+
 	if b.closed {
 		return failure(errors.New("engine is closed"))
 	}
@@ -96,7 +99,17 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 		return failure(err)
 	}
 
-	options := make([]core.Option, 0, 1)
+	allowLocalhost := false
+
+	if len(args) > 1 {
+		if args[1].Type() != js.TypeBoolean {
+			return failure(errors.New("http.allowLocalhost must be a boolean"))
+		}
+
+		allowLocalhost = args[1].Bool()
+	}
+
+	options := make([]core.Option, 0, 2)
 
 	if len(registered) > 0 {
 		options = append(options, core.WithFunctionsRegistrar(func(namespace runtime.Namespace) {
@@ -111,12 +124,27 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 		}))
 	}
 
+	client, err := newBrowserHTTPClient(allowLocalhost)
+	if err != nil {
+		return failure(fmt.Errorf("initialize HTTP client: %w", err))
+	}
+
+	network, err := ferretnet.New(ferretnet.WithHTTPClient(client))
+	if err != nil {
+		client.CloseIdleConnections()
+		return failure(fmt.Errorf("initialize network: %w", err))
+	}
+
+	options = append(options, core.WithNetwork(network))
+
 	engine, err := core.New(options...)
 	if err != nil {
+		ferretnet.CloseIdleNetworkConnections(network)
 		return failure(fmt.Errorf("initialize engine: %w", err))
 	}
 
 	b.engine = engine
+	b.network = network
 
 	return ok(nil)
 }
@@ -125,6 +153,7 @@ func parseFunctions(input js.Value) (map[string]js.Value, error) {
 	if input.Type() == js.TypeUndefined || input.Type() == js.TypeNull {
 		return nil, nil
 	}
+
 	if input.Type() != js.TypeObject {
 		return nil, errors.New("functions must be a plain JavaScript object")
 	}
@@ -146,6 +175,7 @@ func parseFunctions(input js.Value) (map[string]js.Value, error) {
 		if name == "" {
 			return nil, errors.New("function name cannot be empty")
 		}
+
 		if _, duplicate := functions[name]; duplicate {
 			return nil, fmt.Errorf("duplicate function name %q", name)
 		}
@@ -197,6 +227,7 @@ func (b *Bridge) compile(_ js.Value, args []js.Value) any {
 			if err != nil {
 				return failure(err)
 			}
+
 			defer cleanup()
 
 			if err := ctx.Err(); err != nil {
@@ -280,6 +311,7 @@ func (b *Bridge) createSession(_ js.Value, args []js.Value) any {
 			if err != nil {
 				return failure(err)
 			}
+
 			defer cleanup()
 
 			if err := ctx.Err(); err != nil {
@@ -365,6 +397,7 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 			if err != nil {
 				return failure(err)
 			}
+
 			defer cleanup()
 
 			output, runErr := session.Run(ctx)
@@ -384,6 +417,7 @@ func (b *Bridge) runSession(_ js.Value, args []js.Value) any {
 
 func contextFromSignal(signal js.Value) (context.Context, func(), error) {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	if signal.Type() == js.TypeUndefined || signal.Type() == js.TypeNull {
 		return ctx, cancel, nil
 	}
@@ -392,6 +426,7 @@ func contextFromSignal(signal js.Value) (context.Context, func(), error) {
 		signal.Get("addEventListener").Type() != js.TypeFunction ||
 		signal.Get("removeEventListener").Type() != js.TypeFunction {
 		cancel()
+
 		return nil, func() {}, errors.New("signal must be an AbortSignal")
 	}
 
@@ -494,6 +529,7 @@ func (b *Bridge) closePlanByID(id string) error {
 	for sessionID := range handle.sessions {
 		sessionIDs = append(sessionIDs, sessionID)
 	}
+
 	b.mu.Unlock()
 
 	var closeErr error
@@ -546,6 +582,7 @@ func (b *Bridge) closeEngine(_ js.Value, _ []js.Value) any {
 	}
 
 	engine := b.engine
+	network := b.network
 	b.mu.Unlock()
 
 	var closeErr error
@@ -557,9 +594,12 @@ func (b *Bridge) closeEngine(_ js.Value, _ []js.Value) any {
 		closeErr = errors.Join(closeErr, engine.Close())
 	}
 
+	ferretnet.CloseIdleNetworkConnections(network)
+
 	b.mu.Lock()
 	b.closed = true
 	b.engine = nil
+	b.network = nil
 	b.mu.Unlock()
 
 	return resultFromError(closeErr)

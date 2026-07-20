@@ -41,6 +41,7 @@ export type {
     CreateOptions,
     Engine,
     ExecutionOptions,
+    HTTPOptions,
     Params,
     Plan,
     RuntimeFunction,

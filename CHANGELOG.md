@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Added an explicit `http.allowLocalhost` engine option for trusted loopback
+  access while preserving Ferret's secure HTTP defaults.
+
 ### Changed
 
 - Made plan compilation and session creation asynchronous across the
