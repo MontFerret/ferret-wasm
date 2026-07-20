@@ -181,8 +181,15 @@ const engine = await create({
 ```
 
 This option enables loopback access only; private and link-local networks remain
-blocked. In browsers, HTTP calls also use the browser networking stack and are
-subject to CORS.
+blocked. Each Node engine uses its own `node:http` and `node:https` connection
+pools. DNS results are policy-checked before connecting, the selected address is
+pinned for that request, and redirects are returned to Ferret for validation
+before they are followed.
+
+Browser HTTP is intentionally limited to same-origin requests. Fetch is called
+with redirect handling disabled, so cross-origin requests and redirects are
+rejected. Browsers do not expose concrete DNS results or redirect destinations,
+which prevents Ferret from applying its network policy safely to those targets.
 
 ## Migrating from v1
 

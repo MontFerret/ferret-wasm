@@ -109,6 +109,10 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 		allowLocalhost = args[1].Bool()
 	}
 
+	if len(args) < 3 {
+		return failure(errors.New("HTTP transport is required"))
+	}
+
 	options := make([]core.Option, 0, 2)
 
 	if len(registered) > 0 {
@@ -124,7 +128,7 @@ func (b *Bridge) initialize(_ js.Value, args []js.Value) any {
 		}))
 	}
 
-	client, err := newBrowserHTTPClient(allowLocalhost)
+	client, err := newHostHTTPClient(allowLocalhost, args[2])
 	if err != nil {
 		return failure(fmt.Errorf("initialize HTTP client: %w", err))
 	}

@@ -1,9 +1,11 @@
 import { createWithPlatform, type Platform } from './factory';
+import { createBrowserHTTPTransport } from './browser_http';
 import type { CreateOptions } from './types';
 
 const moduleURL = import.meta.url;
 const platform: Platform = {
     defaultWasm: new URL('./ferret.wasm', moduleURL),
+    createHTTPTransport: createBrowserHTTPTransport,
     async prepare(runtime): Promise<void> {
         await import(/* @vite-ignore */ runtime.href);
     },

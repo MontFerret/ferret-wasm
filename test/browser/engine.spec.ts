@@ -60,6 +60,73 @@ test('blocks localhost HTTP by default', async ({ page }) => {
     expect(message).toContain('localhost is not allowed');
 });
 
+test('rejects browser cross-origin HTTP and redirects', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+        const modulePath = '/dist/index.js';
+        const { create } = await import(modulePath);
+        const engine = await create({
+            http: { allowLocalhost: true },
+        });
+
+        const failure = async (query: string): Promise<string> => {
+            try {
+                await engine.run(query);
+                return '';
+            } catch (error) {
+                return (error as Error).message;
+            }
+        };
+
+        try {
+            return {
+                crossOrigin: await failure(
+                    `RETURN IO::NET::HTTP::GET('http://localhost:4173/api/value')`,
+                ),
+                redirect: await failure(
+                    `RETURN IO::NET::HTTP::GET('${location.origin}/api/redirect')`,
+                ),
+            };
+        } finally {
+            await engine.close();
+        }
+    });
+
+    expect(result.crossOrigin).toContain(
+        'browser HTTP requests must be same-origin',
+    );
+    expect(result.redirect).not.toBe('');
+});
+
+test('aborts browser HTTP requests', async ({ page }) => {
+    await page.goto('/');
+    const cancellation = await page.evaluate(async () => {
+        const modulePath = '/dist/index.js';
+        const { create } = await import(modulePath);
+        const engine = await create({
+            http: { allowLocalhost: true },
+        });
+        try {
+            const controller = new AbortController();
+            const pending = engine.run(
+                `RETURN IO::NET::HTTP::GET('${location.origin}/api/slow')`,
+                { signal: controller.signal },
+            );
+            controller.abort();
+            try {
+                await pending;
+                return '';
+            } catch (error) {
+                return (error as Error).name;
+            }
+        } finally {
+            await engine.close();
+        }
+    });
+
+    expect(cancellation).toBe('AbortError');
+});
+
 test('supports host functions and cancellation in a browser', async ({
     page,
 }) => {

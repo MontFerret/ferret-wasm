@@ -1,4 +1,5 @@
 import type { RuntimeFunction, Version } from './types';
+import type { HTTPTransport } from './http';
 
 export interface BridgeError {
     message: string;
@@ -20,6 +21,7 @@ export interface GoBridge {
     initialize(
         functions: Record<string, RuntimeFunction>,
         allowLocalhost: boolean,
+        transport: HTTPTransport,
     ): BridgeResult<undefined>;
     version(): BridgeResult<Version>;
     compile(

@@ -1,10 +1,72 @@
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // @ts-ignore The generated declaration exists only after the build step.
 import { create } from '../dist/index.node.js';
+
+let httpServer: Server;
+let httpBaseURL: string;
+let valueRequests = 0;
+
+beforeAll(async () => {
+    httpServer = createServer((request, response) => {
+        switch (request.url) {
+            case '/value':
+                valueRequests++;
+                response.writeHead(200, { 'Content-Type': 'text/plain' });
+                response.end('node');
+                return;
+            case '/redirect':
+                response.writeHead(302, { Location: '/value' });
+                response.end();
+                return;
+            case '/blocked-redirect':
+                response.writeHead(302, {
+                    Location: 'http://169.254.169.254/latest/meta-data/',
+                });
+                response.end();
+                return;
+            case '/slow': {
+                const timeout = setTimeout(() => {
+                    response.writeHead(200);
+                    response.end('late');
+                }, 5_000);
+                response.once('close', () => clearTimeout(timeout));
+                return;
+            }
+            case '/oversized':
+                response.writeHead(200, {
+                    'Content-Length': String((16 << 20) + 1),
+                    'Content-Type': 'application/octet-stream',
+                });
+                response.end(Buffer.alloc((16 << 20) + 1));
+                return;
+            default:
+                response.writeHead(404);
+                response.end();
+        }
+    });
+
+    await new Promise<void>((resolve, reject) => {
+        httpServer.once('error', reject);
+        httpServer.listen(0, '127.0.0.1', resolve);
+    });
+    const address = httpServer.address() as AddressInfo;
+    httpBaseURL = `http://127.0.0.1:${address.port}`;
+});
+
+afterAll(async () => {
+    httpServer.closeAllConnections();
+    await new Promise<void>((resolve, reject) => {
+        httpServer.close((error) =>
+            error == null ? resolve() : reject(error),
+        );
+    });
+});
 
 describe('Ferret WASM v2', () => {
     it('reports exact versions and executes JSON-compatible results', async () => {
@@ -102,6 +164,63 @@ describe('Ferret WASM v2', () => {
         await expect(
             create({ http: { allowLocalhost: 'yes' } } as never),
         ).rejects.toThrow('http.allowLocalhost must be a boolean');
+    });
+
+    it('denies localhost HTTP by default without dispatching it', async () => {
+        const engine = await create();
+        const requestsBefore = valueRequests;
+        try {
+            await expect(
+                engine.run(`RETURN IO::NET::HTTP::GET('${httpBaseURL}/value')`),
+            ).rejects.toThrow('localhost is not allowed');
+            expect(valueRequests).toBe(requestsBefore);
+        } finally {
+            await engine.close();
+        }
+    });
+
+    it('performs localhost HTTP and policy-checked redirects when enabled', async () => {
+        const engine = await create({ http: { allowLocalhost: true } });
+        try {
+            await expect(
+                engine.run(`RETURN IO::NET::HTTP::GET('${httpBaseURL}/value')`),
+            ).resolves.toBe('bm9kZQ==');
+            await expect(
+                engine.run(
+                    `RETURN IO::NET::HTTP::GET('${httpBaseURL}/redirect')`,
+                ),
+            ).resolves.toBe('bm9kZQ==');
+            await expect(
+                engine.run(
+                    `RETURN IO::NET::HTTP::GET('${httpBaseURL}/blocked-redirect')`,
+                ),
+            ).rejects.toThrow('not allowed');
+        } finally {
+            await engine.close();
+        }
+    });
+
+    it('aborts Node HTTP and bounds materialized responses', async () => {
+        const engine = await create({ http: { allowLocalhost: true } });
+        try {
+            const controller = new AbortController();
+            const pending = engine.run(
+                `RETURN IO::NET::HTTP::GET('${httpBaseURL}/slow')`,
+                { signal: controller.signal },
+            );
+            controller.abort();
+            await expect(pending).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+
+            await expect(
+                engine.run(
+                    `RETURN IO::NET::HTTP::GET('${httpBaseURL}/oversized')`,
+                ),
+            ).rejects.toThrow('response body exceeds limit');
+        } finally {
+            await engine.close();
+        }
     });
 
     it('cancels a run and rejects concurrent session reuse and close', async () => {
